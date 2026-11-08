@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# PlatformIO / Arduino
+.pio/
+build/
+*.bin
+*.elf
+
+# Credenciais (Wi-Fi, broker MQTT) - nunca versionar
+**/secrets.h
+**/config_local.py
+.env
+
+# Sistema
+.DS_Store
+Thumbs.db
