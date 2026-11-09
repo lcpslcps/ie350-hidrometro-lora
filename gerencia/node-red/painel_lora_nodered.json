@@ -1,13 +1,13 @@
 [
  {
-  "id": "381530092b274a64",
+  "id": "a6042a53f728d6d0",
   "type": "tab",
   "label": "Painel LoRa IE350",
   "disabled": false,
   "info": "Painel do enlace LoRa do projeto Hidrômetro Digital (IE350). Abra http://localhost:1880/lora"
  },
  {
-  "id": "bccc52b2d7b23b18",
+  "id": "6423d8240a3599fe",
   "type": "mqtt-broker",
   "name": "HiveMQ público",
   "broker": "broker.hivemq.com",
@@ -38,15 +38,15 @@
   "sessionExpiry": ""
  },
  {
-  "id": "eedc0e31f2d997da",
+  "id": "2f01f5748875c430",
   "type": "websocket-listener",
   "path": "/ws/lora",
   "wholemsg": "false"
  },
  {
-  "id": "5dbc042bfa103316",
+  "id": "69381be51118100e",
   "type": "comment",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "1) Pacotes do broker → decodificação → tela",
   "info": "O gateway publica o UL (20 bytes) e o Python N2/N3 publica o DL. As duas functions convertem os bytes em RSSI, SNR, PSR e margem e mandam para a página pelo WebSocket /ws/lora.",
   "x": 230,
@@ -54,14 +54,14 @@
   "wires": []
  },
  {
-  "id": "b0ded8fee92003d6",
+  "id": "1c5f9a8bda388bdc",
   "type": "mqtt in",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "DL (Python → gateway)",
   "topic": "mot_lora_195111/gateway/downlink",
   "qos": "0",
   "datatype": "buffer",
-  "broker": "bccc52b2d7b23b18",
+  "broker": "6423d8240a3599fe",
   "nl": false,
   "rap": true,
   "rh": 0,
@@ -70,19 +70,19 @@
   "y": 100,
   "wires": [
    [
-    "e8036c6783bdc65a"
+    "0793ba4d805057aa"
    ]
   ]
  },
  {
-  "id": "e3e62b7e11ce58a6",
+  "id": "295747b34abfe0fa",
   "type": "mqtt in",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "UL (gateway → Python)",
   "topic": "mot_lora_195111/gateway/uplink",
   "qos": "0",
   "datatype": "buffer",
-  "broker": "bccc52b2d7b23b18",
+  "broker": "6423d8240a3599fe",
   "nl": false,
   "rap": true,
   "rh": 0,
@@ -91,14 +91,14 @@
   "y": 160,
   "wires": [
    [
-    "9fcb306b3786d827"
+    "39f5a6377d4942e2"
    ]
   ]
  },
  {
-  "id": "e8036c6783bdc65a",
+  "id": "0793ba4d805057aa",
   "type": "function",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "Decodifica DL",
   "func": "// Decodifica o pacote de DESCIDA (DL) publicado pelo Python N2/N3.\n// Bytes: 0 = SF, 1 = código da BW, 2 = CR, 3 = potência,\n//        4-5 = total de medidas da rodada, 12-13 = número da medida.\nconst b = msg.payload;\nif (!Buffer.isBuffer(b) || b.length < 20) return null;\n\nconst BW = { 1: 125, 2: 250, 3: 500 };\nconst medida = b[12] * 256 + b[13];\nconst total  = b[4] * 256 + b[5];\n\n// Medida 1 marca o início de uma rodada nova: zera os contadores\nif (medida === 1) {\n    flow.set(\"ul_count\", 0);\n    flow.set(\"dl_count\", 0);\n}\n// Pacotes com medida 0 são de teste de enlace / configuração: não contam\nif (medida >= 1) flow.set(\"dl_count\", (flow.get(\"dl_count\") || 0) + 1);\n\nflow.set(\"dl_medida\", medida);\nflow.set(\"dl_total\", total);\n\nmsg.payload = {\n    tipo: \"dl\",\n    t: Date.now(),\n    sf: b[0], bw: BW[b[1]] || b[1], cr: b[2], pot: b[3],\n    medida, total,\n    nova_rodada: medida === 1\n};\nreturn msg;\n",
   "outputs": 1,
@@ -111,14 +111,14 @@
   "y": 100,
   "wires": [
    [
-    "2b29f00c7731e0c3"
+    "6db38fb028eef786"
    ]
   ]
  },
  {
-  "id": "9fcb306b3786d827",
+  "id": "39f5a6377d4942e2",
   "type": "function",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "Decodifica UL",
   "func": "// Decodifica o pacote de SUBIDA (UL) publicado pelo gateway.\n// Bytes: 0 = RSSI DL, 1 = SNR DL (medidos no nó),\n//        2 = RSSI UL, 3 = SNR UL (medidos no gateway), 7 = estado da rodada.\n// Conversões iguais às do N5: RSSI = byte/2 - 74 (byte > 128: subtrai 256), SNR = byte/4 - 30\nconst b = msg.payload;\nif (!Buffer.isBuffer(b) || b.length < 20) return null;\n\nconst rssi = v => (v > 128 ? v - 256 : v) / 2 - 74;\nconst snr  = v => v / 4 - 30;\nconst SENSIBILIDADE_SF12 = -137;   // dBm, SX1276 com BW 125 kHz\n\n// Estado 6 = medida em andamento, 5 = última medida da rodada\nconst estado = b[7];\nconst valido = estado === 5 || estado === 6;\n\nlet recebidos = flow.get(\"ul_count\") || 0;\nif (valido) {\n    recebidos += 1;\n    flow.set(\"ul_count\", recebidos);\n}\nconst enviados = flow.get(\"dl_count\") || 0;\n\nconst r_ul = rssi(b[2]);\nconst r_dl = rssi(b[0]);\n\nmsg.payload = {\n    tipo: \"ul\",\n    t: Date.now(),\n    medida: flow.get(\"dl_medida\") || 0,\n    total:  flow.get(\"dl_total\")  || 0,\n    rssi_dl: r_dl, snr_dl: snr(b[1]),\n    rssi_ul: r_ul, snr_ul: snr(b[3]),\n    margem: Math.min(r_ul, r_dl) - SENSIBILIDADE_SF12,\n    estado, valido, recebidos, enviados,\n    psr: enviados ? Math.round(1000 * recebidos / enviados) / 10 : null\n};\nreturn msg;\n",
   "outputs": 1,
@@ -131,15 +131,15 @@
   "y": 160,
   "wires": [
    [
-    "2b29f00c7731e0c3",
-    "979f9342de5e9068"
+    "6db38fb028eef786",
+    "60f5153f6e369546"
    ]
   ]
  },
  {
-  "id": "2b29f00c7731e0c3",
+  "id": "6db38fb028eef786",
   "type": "json",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "",
   "property": "payload",
   "action": "str",
@@ -148,25 +148,25 @@
   "y": 130,
   "wires": [
    [
-    "b2af2510050660dc"
+    "c077de500560f46d"
    ]
   ]
  },
  {
-  "id": "b2af2510050660dc",
+  "id": "c077de500560f46d",
   "type": "websocket out",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "Tela (/ws/lora)",
-  "server": "eedc0e31f2d997da",
+  "server": "2f01f5748875c430",
   "client": "",
   "x": 740,
   "y": 130,
   "wires": []
  },
  {
-  "id": "979f9342de5e9068",
+  "id": "60f5153f6e369546",
   "type": "debug",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "UL decodificado",
   "active": false,
   "tosidebar": true,
@@ -181,9 +181,9 @@
   "wires": []
  },
  {
-  "id": "5b8282fb3241b88c",
+  "id": "01b08a109c135a3b",
   "type": "comment",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "2) Página da tela: http://localhost:1880/lora",
   "info": "",
   "x": 230,
@@ -191,9 +191,9 @@
   "wires": []
  },
  {
-  "id": "0087a568ad160db8",
+  "id": "be78b7bb80e241da",
   "type": "http in",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "GET /lora",
   "url": "/lora",
   "method": "get",
@@ -203,33 +203,33 @@
   "y": 320,
   "wires": [
    [
-    "0134dabb779486cd"
+    "3c9f7553de77d079"
    ]
   ]
  },
  {
-  "id": "0134dabb779486cd",
+  "id": "3c9f7553de77d079",
   "type": "template",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "Página HTML",
   "field": "payload",
   "fieldType": "msg",
   "format": "html",
   "syntax": "plain",
-  "template": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Hidrômetro LoRa · Monitor do enlace</title>\n<script src=\"https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js\"></script>\n<style>\n  :root { --bg:#0f1720; --card:#17212c; --borda:#243241; --txt:#e6edf3; --sub:#8b9bb0;\n          --ul:#3fa7ff; --dl:#f2a541; --ok:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; }\n  * { box-sizing:border-box; }\n  body { margin:0; font-family:Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--txt); }\n  header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;\n           padding:16px 24px; border-bottom:1px solid var(--borda); }\n  h1 { font-size:20px; margin:0; font-weight:600; }\n  h1 small { display:block; font-size:12px; color:var(--sub); font-weight:400; margin-top:2px; }\n  .chips { display:flex; gap:8px; flex-wrap:wrap; }\n  .chip { background:var(--card); border:1px solid var(--borda); border-radius:14px; padding:4px 10px; font-size:12px; color:var(--sub); }\n  .chip b { color:var(--txt); }\n  .status { display:flex; align-items:center; gap:8px; font-size:13px; }\n  .dot { width:10px; height:10px; border-radius:50%; background:var(--bad); }\n  .dot.on { background:var(--ok); box-shadow:0 0 8px var(--ok); }\n  main { padding:20px 24px; display:grid; gap:16px; }\n  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }\n  .kpi { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }\n  .kpi .rot { font-size:12px; color:var(--sub); }\n  .kpi .val { font-size:28px; font-weight:600; margin-top:4px; }\n  .kpi .un { font-size:13px; color:var(--sub); font-weight:400; }\n  .kpi .barra { height:6px; background:var(--borda); border-radius:3px; margin-top:10px; overflow:hidden; }\n  .kpi .barra i { display:block; height:100%; width:0; border-radius:3px; transition:width .4s; }\n  .ul { color:var(--ul); } .dl { color:var(--dl); }\n  .graficos { display:grid; grid-template-columns:2fr 1fr; gap:16px; }\n  .card { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }\n  .card h2 { font-size:14px; margin:0 0 10px; font-weight:600; color:var(--sub); }\n  .alto { height:260px; }\n  table { width:100%; border-collapse:collapse; font-size:13px; }\n  th, td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--borda); }\n  th { color:var(--sub); font-weight:500; } th:first-child, td:first-child { text-align:left; }\n  button { background:transparent; color:var(--sub); border:1px solid var(--borda); border-radius:6px; padding:6px 12px; cursor:pointer; }\n  button:hover { color:var(--txt); border-color:var(--sub); }\n  @media (max-width:900px) { .graficos { grid-template-columns:1fr; } }\n</style>\n</head>\n<body>\n<header>\n  <h1>Hidrômetro LoRa · Monitor do enlace\n    <small>IE350 · Lucas Chiomark Pereira Santos · RA 195111 · tópico mot_lora_195111</small></h1>\n  <div class=\"chips\" id=\"chips\">\n    <span class=\"chip\">SF <b id=\"c-sf\">–</b></span>\n    <span class=\"chip\">BW <b id=\"c-bw\">–</b> kHz</span>\n    <span class=\"chip\">CR <b id=\"c-cr\">–</b></span>\n    <span class=\"chip\">Pot <b id=\"c-pot\">–</b> dBm</span>\n  </div>\n  <div class=\"status\"><span class=\"dot\" id=\"dot\"></span><span id=\"st\">Conectando…</span>\n    <button id=\"limpar\">Limpar</button></div>\n</header>\n\n<main>\n  <section class=\"kpis\">\n    <div class=\"kpi\"><div class=\"rot\">Medida</div><div class=\"val\"><span id=\"k-med\">–</span> <span class=\"un\">/ <span id=\"k-tot\">–</span></span></div>\n      <div class=\"barra\"><i id=\"b-med\" style=\"background:var(--sub)\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot\">PSR (taxa de sucesso)</div><div class=\"val\" id=\"k-psr\">–</div>\n      <div class=\"barra\"><i id=\"b-psr\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot ul\">RSSI subida (UL)</div><div class=\"val\"><span id=\"k-rul\">–</span> <span class=\"un\">dBm</span></div></div>\n    <div class=\"kpi\"><div class=\"rot dl\">RSSI descida (DL)</div><div class=\"val\"><span id=\"k-rdl\">–</span> <span class=\"un\">dBm</span></div></div>\n    <div class=\"kpi\"><div class=\"rot ul\">SNR subida</div><div class=\"val\"><span id=\"k-sul\">–</span> <span class=\"un\">dB</span></div></div>\n    <div class=\"kpi\"><div class=\"rot dl\">SNR descida</div><div class=\"val\"><span id=\"k-sdl\">–</span> <span class=\"un\">dB</span></div></div>\n    <div class=\"kpi\"><div class=\"rot\">Margem do enlace</div><div class=\"val\"><span id=\"k-mar\">–</span> <span class=\"un\">dB</span></div>\n      <div class=\"barra\"><i id=\"b-mar\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot\">σ RSSI UL (rodada)</div><div class=\"val\"><span id=\"k-sig\">–</span> <span class=\"un\">dB</span></div></div>\n  </section>\n\n  <section class=\"graficos\">\n    <div class=\"card\"><h2>RSSI por medida (dBm)</h2><div class=\"alto\"><canvas id=\"g-rssi\"></canvas></div></div>\n    <div class=\"card\"><h2>SNR por medida (dB)</h2><div class=\"alto\"><canvas id=\"g-snr\"></canvas></div></div>\n  </section>\n\n  <section class=\"card\">\n    <h2>Últimos pacotes</h2>\n    <table><thead><tr><th>Hora</th><th>Medida</th><th>RSSI UL</th><th>SNR UL</th><th>RSSI DL</th><th>SNR DL</th><th>PSR</th></tr></thead>\n      <tbody id=\"tab\"></tbody></table>\n  </section>\n</main>\n\n<script>\n// ---------- Gráficos ----------\nChart.defaults.color = \"#8b9bb0\";\nChart.defaults.borderColor = \"#243241\";\nconst opcoes = { responsive:true, maintainAspectRatio:false, animation:false,\n  plugins:{ legend:{ labels:{ boxWidth:12 } } },\n  scales:{ x:{ title:{ display:true, text:\"medida\" } } } };\nconst serie = (rotulo, cor) => ({ label:rotulo, data:[], borderColor:cor, backgroundColor:cor,\n                                  tension:.25, pointRadius:2, borderWidth:2 });\nconst gRssi = new Chart(document.getElementById(\"g-rssi\"), { type:\"line\", options:opcoes,\n  data:{ labels:[], datasets:[ serie(\"UL\", \"#3fa7ff\"), serie(\"DL\", \"#f2a541\") ] } });\nconst gSnr = new Chart(document.getElementById(\"g-snr\"), { type:\"line\", options:opcoes,\n  data:{ labels:[], datasets:[ serie(\"UL\", \"#3fa7ff\"), serie(\"DL\", \"#f2a541\") ] } });\n\n// ---------- Estado da rodada ----------\nlet rssiUl = [];\nconst $ = id => document.getElementById(id);\nconst fmt = (v, d = 1) => (v === null || v === undefined) ? \"–\" : Number(v).toFixed(d);\nconst cor = (v, bom, ruim) => v >= bom ? \"var(--ok)\" : v >= ruim ? \"var(--warn)\" : \"var(--bad)\";\n\nfunction desvio(a) {\n  if (a.length < 2) return null;\n  const m = a.reduce((s, x) => s + x, 0) / a.length;\n  return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1));\n}\n\nfunction limpar() {\n  rssiUl = [];\n  for (const g of [gRssi, gSnr]) { g.data.labels = []; g.data.datasets.forEach(d => d.data = []); g.update(); }\n  $(\"tab\").innerHTML = \"\";\n  [\"k-psr\",\"k-rul\",\"k-rdl\",\"k-sul\",\"k-sdl\",\"k-mar\",\"k-sig\"].forEach(id => $(id).textContent = \"–\");\n}\n$(\"limpar\").onclick = limpar;\n\nfunction trataDL(p) {\n  $(\"c-sf\").textContent = p.sf; $(\"c-bw\").textContent = p.bw;\n  $(\"c-cr\").textContent = \"4/\" + p.cr; $(\"c-pot\").textContent = p.pot;\n  if (p.nova_rodada) limpar();\n  if (p.medida >= 1) {\n    $(\"k-med\").textContent = p.medida; $(\"k-tot\").textContent = p.total;\n    $(\"b-med\").style.width = (100 * p.medida / Math.max(p.total, 1)) + \"%\";\n  }\n}\n\nfunction trataUL(p) {\n  if (!p.valido) return;   // respostas de teste de enlace / configuração\n  rssiUl.push(p.rssi_ul);\n\n  $(\"k-rul\").textContent = fmt(p.rssi_ul); $(\"k-rdl\").textContent = fmt(p.rssi_dl);\n  $(\"k-sul\").textContent = fmt(p.snr_ul, 2); $(\"k-sdl\").textContent = fmt(p.snr_dl, 2);\n  $(\"k-mar\").textContent = fmt(p.margem); $(\"k-sig\").textContent = fmt(desvio(rssiUl), 2);\n  $(\"b-mar\").style.width = Math.min(100, Math.max(0, p.margem)) + \"%\";\n  $(\"b-mar\").style.background = cor(p.margem, 20, 10);\n  if (p.psr !== null) {\n    $(\"k-psr\").textContent = fmt(p.psr) + \" %\";\n    $(\"k-psr\").style.color = cor(p.psr, 95, 80);\n    $(\"b-psr\").style.width = p.psr + \"%\"; $(\"b-psr\").style.background = cor(p.psr, 95, 80);\n  }\n\n  gRssi.data.labels.push(p.medida); gSnr.data.labels.push(p.medida);\n  gRssi.data.datasets[0].data.push(p.rssi_ul); gRssi.data.datasets[1].data.push(p.rssi_dl);\n  gSnr.data.datasets[0].data.push(p.snr_ul); gSnr.data.datasets[1].data.push(p.snr_dl);\n  gRssi.update(); gSnr.update();\n\n  const hora = new Date(p.t).toLocaleTimeString(\"pt-BR\");\n  const tr = document.createElement(\"tr\");\n  tr.innerHTML = `<td>${hora}</td><td>${p.medida}</td><td class=\"ul\">${fmt(p.rssi_ul)}</td><td class=\"ul\">${fmt(p.snr_ul,2)}</td>` +\n                 `<td class=\"dl\">${fmt(p.rssi_dl)}</td><td class=\"dl\">${fmt(p.snr_dl,2)}</td><td>${fmt(p.psr)} %</td>`;\n  $(\"tab\").prepend(tr);\n  while ($(\"tab\").children.length > 15) $(\"tab\").lastChild.remove();\n}\n\n// ---------- WebSocket do Node-RED ----------\nfunction conecta() {\n  const ws = new WebSocket((location.protocol === \"https:\" ? \"wss://\" : \"ws://\") + location.host + \"/ws/lora\");\n  ws.onopen  = () => { $(\"dot\").classList.add(\"on\"); $(\"st\").textContent = \"Conectado ao Node-RED\"; };\n  ws.onclose = () => { $(\"dot\").classList.remove(\"on\"); $(\"st\").textContent = \"Reconectando…\"; setTimeout(conecta, 2000); };\n  ws.onmessage = ev => {\n    const p = JSON.parse(ev.data);\n    if (p.tipo === \"dl\") trataDL(p); else if (p.tipo === \"ul\") trataUL(p);\n  };\n}\nconecta();\n</script>\n</body>\n</html>\n",
+  "template": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Hidrômetro LoRa · Monitor do enlace</title>\n<script src=\"https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js\"></script>\n<style>\n  :root { --bg:#0f1720; --card:#17212c; --borda:#243241; --txt:#e6edf3; --sub:#8b9bb0;\n          --ul:#3fa7ff; --dl:#f2a541; --ok:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; }\n  * { box-sizing:border-box; }\n  body { margin:0; font-family:Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--txt); }\n  header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;\n           padding:16px 24px; border-bottom:1px solid var(--borda); }\n  h1 { font-size:20px; margin:0; font-weight:600; }\n  h1 small { display:block; font-size:12px; color:var(--sub); font-weight:400; margin-top:2px; }\n  .chips { display:flex; gap:8px; flex-wrap:wrap; }\n  .chip { background:var(--card); border:1px solid var(--borda); border-radius:14px; padding:4px 10px; font-size:12px; color:var(--sub); }\n  .chip b { color:var(--txt); }\n  .status { display:flex; align-items:center; gap:8px; font-size:13px; }\n  .dot { width:10px; height:10px; border-radius:50%; background:var(--bad); }\n  .dot.on { background:var(--ok); box-shadow:0 0 8px var(--ok); }\n  main { padding:20px 24px; display:grid; gap:16px; }\n  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }\n  .kpi { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }\n  .kpi .rot { font-size:12px; color:var(--sub); }\n  .kpi .val { font-size:28px; font-weight:600; margin-top:4px; }\n  .kpi .un { font-size:13px; color:var(--sub); font-weight:400; }\n  .kpi .barra { height:6px; background:var(--borda); border-radius:3px; margin-top:10px; overflow:hidden; }\n  .kpi .barra i { display:block; height:100%; width:0; border-radius:3px; transition:width .4s; }\n  .ul { color:var(--ul); } .dl { color:var(--dl); }\n  .graficos { display:grid; grid-template-columns:2fr 1fr; gap:16px; }\n  .card { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }\n  .card h2 { font-size:14px; margin:0 0 10px; font-weight:600; color:var(--sub); }\n  .alto { height:260px; }\n  .rolagem { max-height:420px; overflow-y:auto; }\n  thead th { position:sticky; top:0; background:var(--card); }\n  table { width:100%; border-collapse:collapse; font-size:13px; }\n  th, td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--borda); }\n  th { color:var(--sub); font-weight:500; } th:first-child, td:first-child { text-align:left; }\n  button { background:transparent; color:var(--sub); border:1px solid var(--borda); border-radius:6px; padding:6px 12px; cursor:pointer; }\n  button:hover { color:var(--txt); border-color:var(--sub); }\n  @media (max-width:900px) { .graficos { grid-template-columns:1fr; } }\n</style>\n</head>\n<body>\n<header>\n  <h1>Hidrômetro LoRa · Monitor do enlace\n    <small>IE350 · Lucas Chiomark Pereira Santos · RA 195111 · tópico mot_lora_195111</small></h1>\n  <div class=\"chips\" id=\"chips\">\n    <span class=\"chip\">SF <b id=\"c-sf\">–</b></span>\n    <span class=\"chip\">BW <b id=\"c-bw\">–</b> kHz</span>\n    <span class=\"chip\">CR <b id=\"c-cr\">–</b></span>\n    <span class=\"chip\">Pot <b id=\"c-pot\">–</b> dBm</span>\n  </div>\n  <div class=\"status\"><span class=\"dot\" id=\"dot\"></span><span id=\"st\">Conectando…</span>\n    <button id=\"limpar\">Limpar</button></div>\n</header>\n\n<main>\n  <section class=\"kpis\">\n    <div class=\"kpi\"><div class=\"rot\">Medida</div><div class=\"val\"><span id=\"k-med\">–</span> <span class=\"un\">/ <span id=\"k-tot\">–</span></span></div>\n      <div class=\"barra\"><i id=\"b-med\" style=\"background:var(--sub)\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot\">PSR (taxa de sucesso)</div><div class=\"val\" id=\"k-psr\">–</div>\n      <div class=\"barra\"><i id=\"b-psr\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot ul\">RSSI subida (UL)</div><div class=\"val\"><span id=\"k-rul\">–</span> <span class=\"un\">dBm</span></div></div>\n    <div class=\"kpi\"><div class=\"rot dl\">RSSI descida (DL)</div><div class=\"val\"><span id=\"k-rdl\">–</span> <span class=\"un\">dBm</span></div></div>\n    <div class=\"kpi\"><div class=\"rot ul\">SNR subida</div><div class=\"val\"><span id=\"k-sul\">–</span> <span class=\"un\">dB</span></div></div>\n    <div class=\"kpi\"><div class=\"rot dl\">SNR descida</div><div class=\"val\"><span id=\"k-sdl\">–</span> <span class=\"un\">dB</span></div></div>\n    <div class=\"kpi\"><div class=\"rot\">Margem do enlace</div><div class=\"val\"><span id=\"k-mar\">–</span> <span class=\"un\">dB</span></div>\n      <div class=\"barra\"><i id=\"b-mar\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot\">σ RSSI UL (rodada)</div><div class=\"val\"><span id=\"k-sig\">–</span> <span class=\"un\">dB</span></div></div>\n  </section>\n\n  <section class=\"graficos\">\n    <div class=\"card\"><h2>RSSI por medida (dBm)</h2><div class=\"alto\"><canvas id=\"g-rssi\"></canvas></div></div>\n    <div class=\"card\"><h2>SNR por medida (dB)</h2><div class=\"alto\"><canvas id=\"g-snr\"></canvas></div></div>\n  </section>\n\n  <section class=\"card\">\n    <h2>Pacotes da rodada (<span id=\"n-pac\">0</span>)</h2>\n    <div class=\"rolagem\"><table><thead><tr><th>Hora</th><th>Medida</th><th>RSSI UL</th><th>SNR UL</th><th>RSSI DL</th><th>SNR DL</th><th>PSR</th></tr></thead>\n      <tbody id=\"tab\"></tbody></table></div>\n  </section>\n</main>\n\n<script>\n// ---------- Gráficos ----------\nChart.defaults.color = \"#8b9bb0\";\nChart.defaults.borderColor = \"#243241\";\nconst opcoes = { responsive:true, maintainAspectRatio:false, animation:false,\n  plugins:{ legend:{ labels:{ boxWidth:12 } } },\n  scales:{ x:{ title:{ display:true, text:\"medida\" } } } };\nconst serie = (rotulo, cor) => ({ label:rotulo, data:[], borderColor:cor, backgroundColor:cor,\n                                  tension:.25, pointRadius:2, borderWidth:2 });\nconst gRssi = new Chart(document.getElementById(\"g-rssi\"), { type:\"line\", options:opcoes,\n  data:{ labels:[], datasets:[ serie(\"UL\", \"#3fa7ff\"), serie(\"DL\", \"#f2a541\") ] } });\nconst gSnr = new Chart(document.getElementById(\"g-snr\"), { type:\"line\", options:opcoes,\n  data:{ labels:[], datasets:[ serie(\"UL\", \"#3fa7ff\"), serie(\"DL\", \"#f2a541\") ] } });\n\n// ---------- Estado da rodada ----------\nlet rssiUl = [];\nconst $ = id => document.getElementById(id);\nconst fmt = (v, d = 1) => (v === null || v === undefined) ? \"–\" : Number(v).toFixed(d);\nconst cor = (v, bom, ruim) => v >= bom ? \"var(--ok)\" : v >= ruim ? \"var(--warn)\" : \"var(--bad)\";\n\nfunction desvio(a) {\n  if (a.length < 2) return null;\n  const m = a.reduce((s, x) => s + x, 0) / a.length;\n  return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1));\n}\n\nfunction limpar() {\n  rssiUl = [];\n  for (const g of [gRssi, gSnr]) { g.data.labels = []; g.data.datasets.forEach(d => d.data = []); g.update(); }\n  $(\"tab\").innerHTML = \"\"; $(\"n-pac\").textContent = 0;\n  [\"k-psr\",\"k-rul\",\"k-rdl\",\"k-sul\",\"k-sdl\",\"k-mar\",\"k-sig\"].forEach(id => $(id).textContent = \"–\");\n}\n$(\"limpar\").onclick = limpar;\n\nfunction trataDL(p) {\n  $(\"c-sf\").textContent = p.sf; $(\"c-bw\").textContent = p.bw;\n  $(\"c-cr\").textContent = \"4/\" + p.cr; $(\"c-pot\").textContent = p.pot;\n  if (p.nova_rodada) limpar();\n  if (p.medida >= 1) {\n    $(\"k-med\").textContent = p.medida; $(\"k-tot\").textContent = p.total;\n    $(\"b-med\").style.width = (100 * p.medida / Math.max(p.total, 1)) + \"%\";\n  }\n}\n\nfunction trataUL(p) {\n  if (!p.valido) return;   // respostas de teste de enlace / configuração\n  rssiUl.push(p.rssi_ul);\n\n  $(\"k-rul\").textContent = fmt(p.rssi_ul); $(\"k-rdl\").textContent = fmt(p.rssi_dl);\n  $(\"k-sul\").textContent = fmt(p.snr_ul, 2); $(\"k-sdl\").textContent = fmt(p.snr_dl, 2);\n  $(\"k-mar\").textContent = fmt(p.margem); $(\"k-sig\").textContent = fmt(desvio(rssiUl), 2);\n  $(\"b-mar\").style.width = Math.min(100, Math.max(0, p.margem)) + \"%\";\n  $(\"b-mar\").style.background = cor(p.margem, 20, 10);\n  if (p.psr !== null) {\n    $(\"k-psr\").textContent = fmt(p.psr) + \" %\";\n    $(\"k-psr\").style.color = cor(p.psr, 95, 80);\n    $(\"b-psr\").style.width = p.psr + \"%\"; $(\"b-psr\").style.background = cor(p.psr, 95, 80);\n  }\n\n  gRssi.data.labels.push(p.medida); gSnr.data.labels.push(p.medida);\n  gRssi.data.datasets[0].data.push(p.rssi_ul); gRssi.data.datasets[1].data.push(p.rssi_dl);\n  gSnr.data.datasets[0].data.push(p.snr_ul); gSnr.data.datasets[1].data.push(p.snr_dl);\n  gRssi.update(); gSnr.update();\n\n  const hora = new Date(p.t).toLocaleTimeString(\"pt-BR\");\n  const tr = document.createElement(\"tr\");\n  tr.innerHTML = `<td>${hora}</td><td>${p.medida}</td><td class=\"ul\">${fmt(p.rssi_ul)}</td><td class=\"ul\">${fmt(p.snr_ul,2)}</td>` +\n                 `<td class=\"dl\">${fmt(p.rssi_dl)}</td><td class=\"dl\">${fmt(p.snr_dl,2)}</td><td>${fmt(p.psr)} %</td>`;\n  $(\"tab\").prepend(tr);\n  $(\"n-pac\").textContent = $(\"tab\").children.length;\n}\n\n// ---------- WebSocket do Node-RED ----------\nfunction conecta() {\n  const ws = new WebSocket((location.protocol === \"https:\" ? \"wss://\" : \"ws://\") + location.host + \"/ws/lora\");\n  ws.onopen  = () => { $(\"dot\").classList.add(\"on\"); $(\"st\").textContent = \"Conectado ao Node-RED\"; };\n  ws.onclose = () => { $(\"dot\").classList.remove(\"on\"); $(\"st\").textContent = \"Reconectando…\"; setTimeout(conecta, 2000); };\n  ws.onmessage = ev => {\n    const p = JSON.parse(ev.data);\n    if (p.tipo === \"dl\") trataDL(p); else if (p.tipo === \"ul\") trataUL(p);\n  };\n}\nconecta();\n</script>\n</body>\n</html>\n",
   "output": "str",
   "x": 330,
   "y": 320,
   "wires": [
    [
-    "754858a24d523888"
+    "68ead0aaa2921229"
    ]
   ]
  },
  {
-  "id": "754858a24d523888",
+  "id": "68ead0aaa2921229",
   "type": "http response",
-  "z": "381530092b274a64",
+  "z": "a6042a53f728d6d0",
   "name": "",
   "statusCode": "",
   "headers": {

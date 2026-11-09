@@ -33,6 +33,8 @@
   .card { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }
   .card h2 { font-size:14px; margin:0 0 10px; font-weight:600; color:var(--sub); }
   .alto { height:260px; }
+  .rolagem { max-height:420px; overflow-y:auto; }
+  thead th { position:sticky; top:0; background:var(--card); }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--borda); }
   th { color:var(--sub); font-weight:500; } th:first-child, td:first-child { text-align:left; }
@@ -76,9 +78,9 @@
   </section>
 
   <section class="card">
-    <h2>Últimos pacotes</h2>
-    <table><thead><tr><th>Hora</th><th>Medida</th><th>RSSI UL</th><th>SNR UL</th><th>RSSI DL</th><th>SNR DL</th><th>PSR</th></tr></thead>
-      <tbody id="tab"></tbody></table>
+    <h2>Pacotes da rodada (<span id="n-pac">0</span>)</h2>
+    <div class="rolagem"><table><thead><tr><th>Hora</th><th>Medida</th><th>RSSI UL</th><th>SNR UL</th><th>RSSI DL</th><th>SNR DL</th><th>PSR</th></tr></thead>
+      <tbody id="tab"></tbody></table></div>
   </section>
 </main>
 
@@ -111,7 +113,7 @@ function desvio(a) {
 function limpar() {
   rssiUl = [];
   for (const g of [gRssi, gSnr]) { g.data.labels = []; g.data.datasets.forEach(d => d.data = []); g.update(); }
-  $("tab").innerHTML = "";
+  $("tab").innerHTML = ""; $("n-pac").textContent = 0;
   ["k-psr","k-rul","k-rdl","k-sul","k-sdl","k-mar","k-sig"].forEach(id => $(id).textContent = "–");
 }
 $("limpar").onclick = limpar;
@@ -151,7 +153,7 @@ function trataUL(p) {
   tr.innerHTML = `<td>${hora}</td><td>${p.medida}</td><td class="ul">${fmt(p.rssi_ul)}</td><td class="ul">${fmt(p.snr_ul,2)}</td>` +
                  `<td class="dl">${fmt(p.rssi_dl)}</td><td class="dl">${fmt(p.snr_dl,2)}</td><td>${fmt(p.psr)} %</td>`;
   $("tab").prepend(tr);
-  while ($("tab").children.length > 15) $("tab").lastChild.remove();
+  $("n-pac").textContent = $("tab").children.length;
 }
 
 // ---------- WebSocket do Node-RED ----------
