@@ -18,3 +18,7 @@ build/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Saídas geradas pelo framework ao rodar (os dados oficiais vão para dados/brutos)
+framework_dlul/3_N4_Armazenamento/Dados_Brutos/*.txt
+framework_dlul/3_N4_Armazenamento/Dados_Processados/*.tmp
