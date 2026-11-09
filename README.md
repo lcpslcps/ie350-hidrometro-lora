@@ -132,7 +132,7 @@ funcionando, pronto para a campanha no prédio.
 | C1 | Térreo | Dentro da cabine | Parada em cada andar |
 | C2 | Térreo | Dentro da cabine | Em movimento contínuo |
 
-Procedimento completo em `docs/IE350_Roteiro_Ensaios_Campo.pdf`. Nome dos arquivos:
+Procedimento completo em `docs/IE350_Roteiro_Ensaios_Campo.pdf` (100 medidas por rodada, ~7 min cada, acompanhadas no painel Node-RED de `gerencia/node-red/`). Nome dos arquivos:
 `R_<rodada>_<posicaoGW>_<posicaoNo>_<condicao>_<AAAA-MM-DD>.txt`.
 
 ## Teste de uplink (UL)
