@@ -52,7 +52,7 @@ def corte():
     ax.text(7.8, 1.0, "percurso\nda cabine", fontsize=8, color=TXT2, va="center")
     # apartamento 2º andar (gateway fixo)
     ax.add_patch(Rectangle((9, 2 * H), 3, H, fc="#fdf0e8", ec=LARANJA, lw=1.2, ls="--"))
-    ax.text(10.5, 2 * H + 1.25, "apartamento (Wi-Fi)", ha="center", fontsize=7.5, color=LARANJA)
+    ax.text(10.5, 2 * H + 1.25, "apto 21 (Wi-Fi)", ha="center", fontsize=7.5, color=LARANJA)
     gw(ax, 9.6, 2 * H + .35, "GW fixo", dy=-.6)
     # posições do nó
     no(ax, 5.3, .55, "A0 · A1 · A2\nnó no hall do térreo")
@@ -75,39 +75,77 @@ def corte():
     fig.savefig(SAIDA / "corte_predio_ensaios.png", bbox_inches="tight"); plt.close(fig)
 
 
-def planta(ax, titulo):
-    ax.set_xlim(0, 10); ax.set_ylim(0, 7); ax.set_aspect("equal"); ax.axis("off")
-    ax.set_title(titulo, loc="left", fontsize=10.5, fontweight="bold", color=TXT)
-    ax.add_patch(Rectangle((.2, .2), 9.6, 6.6, fc=PISO, ec=PAREDE, lw=1.6))
-    # poço do elevador e escada (comuns aos dois andares)
-    ax.add_patch(Rectangle((.2, 4.4), 2.2, 2.4, fc="#dcdad3", ec=PAREDE, hatch="////", lw=.8))
-    ax.text(1.3, 5.6, "poço do\nelevador", ha="center", va="center", fontsize=8, color=TXT,
+def porta(ax, x0, y0, x1, y1, rot=None, tx=0, ty=0, ha="center"):
+    """Porta de apartamento/saída: trecho hachurado sobre a parede."""
+    ax.add_patch(Rectangle((min(x0, x1) - .08, min(y0, y1) - .08), abs(x1 - x0) + .16, abs(y1 - y0) + .16,
+                           fc="white", ec=TXT2, hatch="////", lw=.8, zorder=4))
+    if rot:
+        ax.text((x0 + x1) / 2 + tx, (y0 + y1) / 2 + ty, rot, ha=ha, va="center", fontsize=7.5, color=TXT2)
+
+
+def escada(ax, x, y, w, h, vertical=False):
+    ax.add_patch(Rectangle((x, y), w, h, fc="#ebe9e3", ec=PAREDE, lw=1))
+    n = 7
+    for k in range(1, n):
+        if vertical:
+            ax.plot([x + k * w / n] * 2, [y, y + h], color="#c9c7c0", lw=.8)
+        else:
+            ax.plot([x, x + w], [y + k * h / n] * 2, color="#c9c7c0", lw=.8)
+    ax.text(x + w / 2, y + h / 2, "escada", ha="center", va="center", fontsize=8, color=TXT2,
+            bbox=dict(boxstyle="round,pad=.15", fc="#ebe9e3", ec="none"))
+
+
+def elevador(ax, x, y, w, h):
+    ax.add_patch(Rectangle((x, y), w, h, fc="#dcdad3", ec=PAREDE, hatch="////", lw=1))
+    ax.text(x + w / 2, y + h / 2, "elevador", ha="center", va="center", fontsize=8.5, color=TXT,
             bbox=dict(boxstyle="round,pad=.2", fc="white", ec="none"))
-    ax.plot([2.45, 2.45], [4.7, 6.4], color=AZUL, lw=3)
-    ax.text(2.6, 6.55, "porta", fontsize=7, color=TXT2)
-    ax.add_patch(Rectangle((7.4, 4.4), 2.4, 2.4, fc="#ebe9e3", ec=PAREDE, lw=.8))
-    for k in range(6):
-        ax.plot([7.4, 9.8], [4.6 + k * .35] * 2, color="#c9c7c0", lw=.8)
-    ax.text(8.6, 3.9, "escada", ha="center", fontsize=8, color=TXT2)
-    ax.text(5, 5.6, "hall", ha="center", fontsize=9, color=TXT2)
+    ax.plot([x + w] * 2, [y + h * .55, y + h * .9], color=AZUL, lw=4, solid_capstyle="butt")  # porta
+    ax.text(x + w + .15, y + h * .5, "porta do\nelevador", fontsize=6.5, color=AZUL, va="top")
+
+
+def base(ax, titulo):
+    ax.set_xlim(-3.9, 13.2); ax.set_ylim(-1.4, 7.6); ax.set_aspect("equal"); ax.axis("off")
+    ax.set_title(titulo, loc="left", fontsize=10.5, fontweight="bold", color=TXT)
+    ax.add_patch(Rectangle((0, 0), 10, 7, fc=PISO, ec=PAREDE, lw=1.8))
 
 
 def plantas():
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(12, 4.3))
-    planta(a1, "Térreo: nó das rodadas A0, A1 e A2")
-    a1.add_patch(Rectangle((3.4, 2.3), 1.2, .8, fc="white", ec=TXT2, lw=.8))
-    a1.text(4.0, 2.0, "mesa", ha="center", va="top", fontsize=7, color=TXT2)
-    a1.plot(4.0, 2.7, "o", ms=11, color=AZUL, mec="white", mew=1.5, zorder=5)
-    a1.text(4.9, 2.7, "nó (tomada)\n~3 m da porta", ha="left", va="center", fontsize=8, color=AZUL, fontweight="bold")
-    a1.add_patch(Rectangle((.2, .2), 3, 1.6, fc="#eeeae0", ec=PAREDE, lw=.8))
-    a1.text(1.7, 1.0, "corredor /\nárea técnica", ha="center", va="center", fontsize=7.5, color=TXT2)
-    planta(a2, "2º andar: gateway fixo (todas as rodadas)")
-    a2.add_patch(Rectangle((3.2, .2), 4.0, 2.4, fc="#fdf0e8", ec=LARANJA, lw=1.2, ls="--"))
-    a2.text(5.2, .5, "apartamento 22", ha="center", fontsize=8, color=LARANJA)
-    a2.plot([4.6, 5.8], [2.6, 2.6], color=PAREDE, lw=4)
-    a2.text(5.2, 2.85, "porta", ha="center", fontsize=7, color=TXT2)
-    gw(a2, 3.8, 1.7, "GW na parede\ninterna, perto\nda porta", dx=.4, dy=.2, ha="left", va="center")
-    fig.text(.01, .01, "Plantas esquemáticas, sem escala, montadas a partir das fotos do ensaio (docs/fotos). Posições aproximadas.",
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(13, 3.7))
+    fig.subplots_adjust(bottom=.06, top=.9, wspace=.05)
+
+    # ---- Térreo ----------------------------------------------------------
+    base(a1, "Térreo: nó das rodadas A0, A1 e A2")
+    escada(a1, 0, 5.6, 3.6, 1.4)
+    a1.add_patch(Rectangle((3.6, 5.6), 1.4, 1.4, fc="#eeeae0", ec=PAREDE, lw=1))
+    a1.text(4.3, 6.3, "dispensa", ha="center", va="center", fontsize=7, color=TXT2)
+    escada(a1, 0, 3.4, 2.0, 2.2, vertical=True)
+    elevador(a1, 2.0, 3.4, 3.0, 2.2)
+    a1.text(8.0, 6.2, "hall de entrada", ha="center", fontsize=9, color=TXT2)
+    a1.text(5.0, 1.6, "hall de entrada", ha="center", fontsize=9, color=TXT2)
+    porta(a1, 1.0, 0, 2.4, 0, "garagem", ty=-.45)
+    a1.add_patch(Rectangle((7.0, 3.9), 1.2, .8, fc="white", ec=TXT2, lw=.8))
+    a1.plot(7.6, 4.3, "o", ms=11, color=AZUL, mec="white", mew=1.5, zorder=5)
+    a1.text(7.6, 3.75, "nó na mesa (tomada),\n~3 m do elevador", ha="center", va="top",
+            fontsize=7.5, color=AZUL, fontweight="bold")
+
+    # ---- Andar tipo (2º) -------------------------------------------------
+    base(a2, "2º andar: gateway fixo no apto 21 (todas as rodadas)")
+    escada(a2, 0, 5.6, 6.6, 1.4)
+    escada(a2, 0, 3.2, 2.0, 2.4, vertical=True)
+    elevador(a2, 2.0, 3.2, 3.6, 2.4)
+    a2.text(8.3, 5.0, "hall dos\napartamentos", ha="center", va="center", fontsize=8.5, color=TXT2)
+    a2.text(5.0, 1.6, "hall dos apartamentos", ha="center", fontsize=9, color=TXT2)
+    # apartamento 1 (apto 21) à esquerda, com o gateway
+    a2.add_patch(Rectangle((-3.7, -.6), 3.5, 7.6, fc="#fdf0e8", ec=LARANJA, lw=1.2, ls="--"))
+    a2.text(-1.95, 6.5, "apto 21\n(AP1)", ha="center", va="center", fontsize=8, color=LARANJA)
+    porta(a2, 0, 1.2, 0, 2.4, "entrada 1\nAP1", tx=.25, ha="left")
+    porta(a2, 1.6, 0, 2.8, 0, "entrada 2 AP1", ty=-.45)
+    porta(a2, 6.6, 0, 7.8, 0, "entrada 2 AP2", ty=-.45)
+    porta(a2, 10, 1.4, 10, 2.6, "entrada 1\nAP2", tx=.25, ha="left")
+    gw(a2, -.55, 2.75, "GW na parede,\nao lado da\nentrada 1", dx=-1.4, dy=-1.3)
+    a2.text(11.6, 5.0, "AP2", ha="center", fontsize=8, color=TXT2)
+
+    fig.text(.01, .01, "Plantas esquemáticas, sem escala, feitas a partir do esboço e das fotos do ensaio. Posições aproximadas.",
              fontsize=8, color=TXT2)
     fig.savefig(SAIDA / "plantas_esquematicas.png", bbox_inches="tight"); plt.close(fig)
 

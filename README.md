@@ -98,8 +98,8 @@ a rodada em tempo real; o README da pasta explica a importação.
 
 ## Como os ensaios foram feitos
 
-O gateway ficou sempre no mesmo lugar: na parede interna do apartamento do 2º andar, ao lado
-da porta, ligado no Wi-Fi do apartamento. Quem mudou de posição foi o nó. O canal de rádio é
+O gateway ficou sempre no mesmo lugar: na parede interna do apto 21 (2º andar), ao lado da
+entrada 1, ligado no Wi-Fi do apartamento. Quem mudou de posição foi o nó. O canal de rádio é
 recíproco, então "nó no térreo e gateway no 2º" mede o mesmo enlace que "gateway no térreo e
 nó no 2º", que era o plano original. Medimos DL e UL em todas as rodadas; com o nó na tomada, as duas
 direções ficaram a no máximo 2,5 dB uma da outra, o que sustenta a troca.
