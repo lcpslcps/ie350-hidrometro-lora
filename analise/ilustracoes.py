@@ -127,9 +127,9 @@ def plantas():
     a1.text(6.9, 4.4, "hall de entrada", ha="center", fontsize=9, color=TXT2)
     a1.text(5.0, 1.6, "hall de entrada", ha="center", fontsize=9, color=TXT2)
     porta(a1, 1.0, 0, 2.4, 0, "garagem", ty=-.45)
-    a1.add_patch(Rectangle((8.4, 5.9), 1.2, .8, fc="white", ec=TXT2, lw=.8))
-    a1.plot(9.0, 6.3, "o", ms=11, color=AZUL, mec="white", mew=1.5, zorder=5)
-    a1.text(9.0, 5.75, "nó na mesa\n(tomada)", ha="center", va="top",
+    a1.add_patch(Rectangle((7.6, 5.9), 1.2, .8, fc="white", ec=TXT2, lw=.8))
+    a1.plot(8.2, 6.3, "o", ms=11, color=AZUL, mec="white", mew=1.5, zorder=5)
+    a1.text(8.2, 5.75, "nó na mesa\n(tomada)", ha="center", va="top",
             fontsize=7.5, color=AZUL, fontweight="bold")
 
     # ---- Andar tipo (2º) -------------------------------------------------
