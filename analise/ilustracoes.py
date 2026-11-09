@@ -95,12 +95,16 @@ def escada(ax, x, y, w, h, vertical=False):
             bbox=dict(boxstyle="round,pad=.15", fc="#ebe9e3", ec="none"))
 
 
-def elevador(ax, x, y, w, h):
+def elevador(ax, x, y, w, h, porta_em="direita"):
     ax.add_patch(Rectangle((x, y), w, h, fc="#dcdad3", ec=PAREDE, hatch="////", lw=1))
     ax.text(x + w / 2, y + h / 2, "elevador", ha="center", va="center", fontsize=8.5, color=TXT,
             bbox=dict(boxstyle="round,pad=.2", fc="white", ec="none"))
-    ax.plot([x + w] * 2, [y + h * .55, y + h * .9], color=AZUL, lw=4, solid_capstyle="butt")  # porta
-    ax.text(x + w + .15, y + h * .5, "porta do\nelevador", fontsize=6.5, color=AZUL, va="top")
+    if porta_em == "direita":      # térreo: porta abre para o hall de entrada
+        ax.plot([x + w] * 2, [y + h * .55, y + h * .9], color=AZUL, lw=4, solid_capstyle="butt")
+        ax.text(x + w + .15, y + h * .5, "porta do\nelevador", fontsize=6.5, color=AZUL, va="top")
+    else:                          # andares: porta abre para o hall de baixo
+        ax.plot([x + w * .55, x + w * .9], [y] * 2, color=AZUL, lw=4, solid_capstyle="butt")
+        ax.text(x + w * .725, y - .15, "porta do elevador", fontsize=6.5, color=AZUL, ha="center", va="top")
 
 
 def base(ax, titulo):
@@ -132,7 +136,7 @@ def plantas():
     base(a2, "2º andar: gateway fixo no apto 21 (todas as rodadas)")
     escada(a2, 0, 5.6, 6.6, 1.4)
     escada(a2, 0, 3.2, 2.0, 2.4, vertical=True)
-    elevador(a2, 2.0, 3.2, 3.6, 2.4)
+    elevador(a2, 2.0, 3.2, 3.6, 2.4, porta_em="baixo")
     a2.text(8.3, 5.0, "hall dos\napartamentos", ha="center", va="center", fontsize=8.5, color=TXT2)
     a2.text(5.0, 1.6, "hall dos apartamentos", ha="center", fontsize=9, color=TXT2)
     # apartamento 1 (apto 21) à esquerda, com o gateway
