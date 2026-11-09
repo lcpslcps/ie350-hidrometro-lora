@@ -107,6 +107,18 @@ Calculado com `python analise/resumo_rodadas.py`. Na rodada P2, 10 pacotes se pe
 com o enlace forte (RSSI ≈ −42 dBm), então a causa provável não é o rádio, e sim o
 caminho Wi-Fi/MQTT. Isso será observado na campanha.
 
+## Validação do sistema (09/11/2026)
+
+Teste de ponta a ponta antes da campanha: nó e gateway na mesma mesa, gateway no Wi-Fi e
+PC no broker público. 20 pacotes em SF12/BW125/CR4/8/20 dBm, intervalo de 4,06 s.
+
+| Rodada | PSR | RSSI UL (dBm) | σ UL | RSSI DL (dBm) | σ DL | SNR UL (dB) |
+|---|---|---|---|---|---|---|
+| V1 (10:53) | 100% | −39.5 | 0.60 | −37.5 | 0.51 | 10.64 |
+
+Arquivo em `dados/brutos/validacao_2026-11-09/`. Resultado: framework, gateway, nó e broker
+funcionando, pronto para a campanha no prédio.
+
 ## Campanha de cobertura (prédio, com elevador)
 
 ![Cenários](docs/figuras/cenarios_teste.png)
