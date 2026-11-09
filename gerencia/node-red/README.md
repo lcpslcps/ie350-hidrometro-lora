@@ -12,7 +12,20 @@ os últimos pacotes. Usa só nós nativos do Node-RED, sem paleta extra.
 
 1. No Node-RED: menu ☰ → **Importar** → selecionar `painel_lora_nodered.json` → **Importar** → **Deploy**.
 2. Abrir **http://localhost:1880/lora** no navegador.
-3. Rodar o framework normalmente (N2/N3 + N6 → INICIAR). A tela zera sozinha quando começa uma rodada nova.
+3. Digitar o nome do teste (ex.: `A1_GWterreo_No2and_mov`) e clicar em **Novo teste**.
+4. Rodar o framework normalmente (N2/N3 + N6 → INICIAR). A tela acompanha ao vivo.
+5. Ao terminar, aparece "Teste finalizado" e o botão **Exportar CSV** fica verde. O arquivo
+   baixa como `<nome>_<AAAA-MM-DD_HH-MM>.csv`.
+6. **Importar** abre depois, em modo revisão, um CSV exportado ou o `.txt` bruto do framework
+   (`3_N4_Armazenamento/Dados_Brutos`).
+
+O teste em andamento fica salvo no navegador: atualizar a página (F5) não apaga os dados.
+O dado oficial de cada rodada continua sendo o `.txt` do framework; o CSV é uma cópia
+prática para a análise.
+
+### Colunas do CSV
+
+`teste, data_hora (hora local), medida, total, rssi_ul, snr_ul, rssi_dl, snr_dl, psr, margem, sf, bw, cr, pot`
 
 O PC com o Node-RED só precisa de internet: ele assina os mesmos tópicos do broker público
 (`mot_lora_195111/gateway/uplink` e `.../downlink`), sem interferir no framework.

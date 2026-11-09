@@ -1,13 +1,13 @@
 [
  {
-  "id": "a6042a53f728d6d0",
+  "id": "4adfc191bf4c7127",
   "type": "tab",
   "label": "Painel LoRa IE350",
   "disabled": false,
   "info": "Painel do enlace LoRa do projeto Hidrômetro Digital (IE350). Abra http://localhost:1880/lora"
  },
  {
-  "id": "6423d8240a3599fe",
+  "id": "82891a4a04e13c95",
   "type": "mqtt-broker",
   "name": "HiveMQ público",
   "broker": "broker.hivemq.com",
@@ -38,15 +38,15 @@
   "sessionExpiry": ""
  },
  {
-  "id": "2f01f5748875c430",
+  "id": "2b3962d1dce78229",
   "type": "websocket-listener",
   "path": "/ws/lora",
   "wholemsg": "false"
  },
  {
-  "id": "69381be51118100e",
+  "id": "2f92b65df59b3f81",
   "type": "comment",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "1) Pacotes do broker → decodificação → tela",
   "info": "O gateway publica o UL (20 bytes) e o Python N2/N3 publica o DL. As duas functions convertem os bytes em RSSI, SNR, PSR e margem e mandam para a página pelo WebSocket /ws/lora.",
   "x": 230,
@@ -54,14 +54,14 @@
   "wires": []
  },
  {
-  "id": "1c5f9a8bda388bdc",
+  "id": "a335a062bab249d5",
   "type": "mqtt in",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "DL (Python → gateway)",
   "topic": "mot_lora_195111/gateway/downlink",
   "qos": "0",
   "datatype": "buffer",
-  "broker": "6423d8240a3599fe",
+  "broker": "82891a4a04e13c95",
   "nl": false,
   "rap": true,
   "rh": 0,
@@ -70,19 +70,19 @@
   "y": 100,
   "wires": [
    [
-    "0793ba4d805057aa"
+    "8772be07620442c6"
    ]
   ]
  },
  {
-  "id": "295747b34abfe0fa",
+  "id": "cbef12fb448efd70",
   "type": "mqtt in",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "UL (gateway → Python)",
   "topic": "mot_lora_195111/gateway/uplink",
   "qos": "0",
   "datatype": "buffer",
-  "broker": "6423d8240a3599fe",
+  "broker": "82891a4a04e13c95",
   "nl": false,
   "rap": true,
   "rh": 0,
@@ -91,14 +91,14 @@
   "y": 160,
   "wires": [
    [
-    "39f5a6377d4942e2"
+    "1814da3b3be4616e"
    ]
   ]
  },
  {
-  "id": "0793ba4d805057aa",
+  "id": "8772be07620442c6",
   "type": "function",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "Decodifica DL",
   "func": "// Decodifica o pacote de DESCIDA (DL) publicado pelo Python N2/N3.\n// Bytes: 0 = SF, 1 = código da BW, 2 = CR, 3 = potência,\n//        4-5 = total de medidas da rodada, 12-13 = número da medida.\nconst b = msg.payload;\nif (!Buffer.isBuffer(b) || b.length < 20) return null;\n\nconst BW = { 1: 125, 2: 250, 3: 500 };\nconst medida = b[12] * 256 + b[13];\nconst total  = b[4] * 256 + b[5];\n\n// Medida 1 marca o início de uma rodada nova: zera os contadores\nif (medida === 1) {\n    flow.set(\"ul_count\", 0);\n    flow.set(\"dl_count\", 0);\n}\n// Pacotes com medida 0 são de teste de enlace / configuração: não contam\nif (medida >= 1) flow.set(\"dl_count\", (flow.get(\"dl_count\") || 0) + 1);\n\nflow.set(\"dl_medida\", medida);\nflow.set(\"dl_total\", total);\n\nmsg.payload = {\n    tipo: \"dl\",\n    t: Date.now(),\n    sf: b[0], bw: BW[b[1]] || b[1], cr: b[2], pot: b[3],\n    medida, total,\n    nova_rodada: medida === 1\n};\nreturn msg;\n",
   "outputs": 1,
@@ -111,14 +111,14 @@
   "y": 100,
   "wires": [
    [
-    "6db38fb028eef786"
+    "14efb6da0f0a1eba"
    ]
   ]
  },
  {
-  "id": "39f5a6377d4942e2",
+  "id": "1814da3b3be4616e",
   "type": "function",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "Decodifica UL",
   "func": "// Decodifica o pacote de SUBIDA (UL) publicado pelo gateway.\n// Bytes: 0 = RSSI DL, 1 = SNR DL (medidos no nó),\n//        2 = RSSI UL, 3 = SNR UL (medidos no gateway), 7 = estado da rodada.\n// Conversões iguais às do N5: RSSI = byte/2 - 74 (byte > 128: subtrai 256), SNR = byte/4 - 30\nconst b = msg.payload;\nif (!Buffer.isBuffer(b) || b.length < 20) return null;\n\nconst rssi = v => (v > 128 ? v - 256 : v) / 2 - 74;\nconst snr  = v => v / 4 - 30;\nconst SENSIBILIDADE_SF12 = -137;   // dBm, SX1276 com BW 125 kHz\n\n// Estado 6 = medida em andamento, 5 = última medida da rodada\nconst estado = b[7];\nconst valido = estado === 5 || estado === 6;\n\nlet recebidos = flow.get(\"ul_count\") || 0;\nif (valido) {\n    recebidos += 1;\n    flow.set(\"ul_count\", recebidos);\n}\nconst enviados = flow.get(\"dl_count\") || 0;\n\nconst r_ul = rssi(b[2]);\nconst r_dl = rssi(b[0]);\n\nmsg.payload = {\n    tipo: \"ul\",\n    t: Date.now(),\n    medida: flow.get(\"dl_medida\") || 0,\n    total:  flow.get(\"dl_total\")  || 0,\n    rssi_dl: r_dl, snr_dl: snr(b[1]),\n    rssi_ul: r_ul, snr_ul: snr(b[3]),\n    margem: Math.min(r_ul, r_dl) - SENSIBILIDADE_SF12,\n    estado, valido, recebidos, enviados,\n    psr: enviados ? Math.round(1000 * recebidos / enviados) / 10 : null\n};\nreturn msg;\n",
   "outputs": 1,
@@ -131,15 +131,15 @@
   "y": 160,
   "wires": [
    [
-    "6db38fb028eef786",
-    "60f5153f6e369546"
+    "14efb6da0f0a1eba",
+    "9961274f4169bd94"
    ]
   ]
  },
  {
-  "id": "6db38fb028eef786",
+  "id": "14efb6da0f0a1eba",
   "type": "json",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "",
   "property": "payload",
   "action": "str",
@@ -148,25 +148,25 @@
   "y": 130,
   "wires": [
    [
-    "c077de500560f46d"
+    "3e9ac30e7164cfe7"
    ]
   ]
  },
  {
-  "id": "c077de500560f46d",
+  "id": "3e9ac30e7164cfe7",
   "type": "websocket out",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "Tela (/ws/lora)",
-  "server": "2f01f5748875c430",
+  "server": "2b3962d1dce78229",
   "client": "",
   "x": 740,
   "y": 130,
   "wires": []
  },
  {
-  "id": "60f5153f6e369546",
+  "id": "9961274f4169bd94",
   "type": "debug",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "UL decodificado",
   "active": false,
   "tosidebar": true,
@@ -181,9 +181,9 @@
   "wires": []
  },
  {
-  "id": "01b08a109c135a3b",
+  "id": "37bc36eb237ebcc4",
   "type": "comment",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "2) Página da tela: http://localhost:1880/lora",
   "info": "",
   "x": 230,
@@ -191,9 +191,9 @@
   "wires": []
  },
  {
-  "id": "be78b7bb80e241da",
+  "id": "e1fa4c27eb30244c",
   "type": "http in",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "GET /lora",
   "url": "/lora",
   "method": "get",
@@ -203,33 +203,33 @@
   "y": 320,
   "wires": [
    [
-    "3c9f7553de77d079"
+    "6bfb7933cdcc4d2a"
    ]
   ]
  },
  {
-  "id": "3c9f7553de77d079",
+  "id": "6bfb7933cdcc4d2a",
   "type": "template",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "Página HTML",
   "field": "payload",
   "fieldType": "msg",
   "format": "html",
   "syntax": "plain",
-  "template": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Hidrômetro LoRa · Monitor do enlace</title>\n<script src=\"https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js\"></script>\n<style>\n  :root { --bg:#0f1720; --card:#17212c; --borda:#243241; --txt:#e6edf3; --sub:#8b9bb0;\n          --ul:#3fa7ff; --dl:#f2a541; --ok:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; }\n  * { box-sizing:border-box; }\n  body { margin:0; font-family:Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--txt); }\n  header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;\n           padding:16px 24px; border-bottom:1px solid var(--borda); }\n  h1 { font-size:20px; margin:0; font-weight:600; }\n  h1 small { display:block; font-size:12px; color:var(--sub); font-weight:400; margin-top:2px; }\n  .chips { display:flex; gap:8px; flex-wrap:wrap; }\n  .chip { background:var(--card); border:1px solid var(--borda); border-radius:14px; padding:4px 10px; font-size:12px; color:var(--sub); }\n  .chip b { color:var(--txt); }\n  .status { display:flex; align-items:center; gap:8px; font-size:13px; }\n  .dot { width:10px; height:10px; border-radius:50%; background:var(--bad); }\n  .dot.on { background:var(--ok); box-shadow:0 0 8px var(--ok); }\n  main { padding:20px 24px; display:grid; gap:16px; }\n  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }\n  .kpi { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }\n  .kpi .rot { font-size:12px; color:var(--sub); }\n  .kpi .val { font-size:28px; font-weight:600; margin-top:4px; }\n  .kpi .un { font-size:13px; color:var(--sub); font-weight:400; }\n  .kpi .barra { height:6px; background:var(--borda); border-radius:3px; margin-top:10px; overflow:hidden; }\n  .kpi .barra i { display:block; height:100%; width:0; border-radius:3px; transition:width .4s; }\n  .ul { color:var(--ul); } .dl { color:var(--dl); }\n  .graficos { display:grid; grid-template-columns:2fr 1fr; gap:16px; }\n  .card { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }\n  .card h2 { font-size:14px; margin:0 0 10px; font-weight:600; color:var(--sub); }\n  .alto { height:260px; }\n  .rolagem { max-height:420px; overflow-y:auto; }\n  thead th { position:sticky; top:0; background:var(--card); }\n  table { width:100%; border-collapse:collapse; font-size:13px; }\n  th, td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--borda); }\n  th { color:var(--sub); font-weight:500; } th:first-child, td:first-child { text-align:left; }\n  button { background:transparent; color:var(--sub); border:1px solid var(--borda); border-radius:6px; padding:6px 12px; cursor:pointer; }\n  button:hover { color:var(--txt); border-color:var(--sub); }\n  @media (max-width:900px) { .graficos { grid-template-columns:1fr; } }\n</style>\n</head>\n<body>\n<header>\n  <h1>Hidrômetro LoRa · Monitor do enlace\n    <small>IE350 · Lucas Chiomark Pereira Santos · RA 195111 · tópico mot_lora_195111</small></h1>\n  <div class=\"chips\" id=\"chips\">\n    <span class=\"chip\">SF <b id=\"c-sf\">–</b></span>\n    <span class=\"chip\">BW <b id=\"c-bw\">–</b> kHz</span>\n    <span class=\"chip\">CR <b id=\"c-cr\">–</b></span>\n    <span class=\"chip\">Pot <b id=\"c-pot\">–</b> dBm</span>\n  </div>\n  <div class=\"status\"><span class=\"dot\" id=\"dot\"></span><span id=\"st\">Conectando…</span>\n    <button id=\"limpar\">Limpar</button></div>\n</header>\n\n<main>\n  <section class=\"kpis\">\n    <div class=\"kpi\"><div class=\"rot\">Medida</div><div class=\"val\"><span id=\"k-med\">–</span> <span class=\"un\">/ <span id=\"k-tot\">–</span></span></div>\n      <div class=\"barra\"><i id=\"b-med\" style=\"background:var(--sub)\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot\">PSR (taxa de sucesso)</div><div class=\"val\" id=\"k-psr\">–</div>\n      <div class=\"barra\"><i id=\"b-psr\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot ul\">RSSI subida (UL)</div><div class=\"val\"><span id=\"k-rul\">–</span> <span class=\"un\">dBm</span></div></div>\n    <div class=\"kpi\"><div class=\"rot dl\">RSSI descida (DL)</div><div class=\"val\"><span id=\"k-rdl\">–</span> <span class=\"un\">dBm</span></div></div>\n    <div class=\"kpi\"><div class=\"rot ul\">SNR subida</div><div class=\"val\"><span id=\"k-sul\">–</span> <span class=\"un\">dB</span></div></div>\n    <div class=\"kpi\"><div class=\"rot dl\">SNR descida</div><div class=\"val\"><span id=\"k-sdl\">–</span> <span class=\"un\">dB</span></div></div>\n    <div class=\"kpi\"><div class=\"rot\">Margem do enlace</div><div class=\"val\"><span id=\"k-mar\">–</span> <span class=\"un\">dB</span></div>\n      <div class=\"barra\"><i id=\"b-mar\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot\">σ RSSI UL (rodada)</div><div class=\"val\"><span id=\"k-sig\">–</span> <span class=\"un\">dB</span></div></div>\n  </section>\n\n  <section class=\"graficos\">\n    <div class=\"card\"><h2>RSSI por medida (dBm)</h2><div class=\"alto\"><canvas id=\"g-rssi\"></canvas></div></div>\n    <div class=\"card\"><h2>SNR por medida (dB)</h2><div class=\"alto\"><canvas id=\"g-snr\"></canvas></div></div>\n  </section>\n\n  <section class=\"card\">\n    <h2>Pacotes da rodada (<span id=\"n-pac\">0</span>)</h2>\n    <div class=\"rolagem\"><table><thead><tr><th>Hora</th><th>Medida</th><th>RSSI UL</th><th>SNR UL</th><th>RSSI DL</th><th>SNR DL</th><th>PSR</th></tr></thead>\n      <tbody id=\"tab\"></tbody></table></div>\n  </section>\n</main>\n\n<script>\n// ---------- Gráficos ----------\nChart.defaults.color = \"#8b9bb0\";\nChart.defaults.borderColor = \"#243241\";\nconst opcoes = { responsive:true, maintainAspectRatio:false, animation:false,\n  plugins:{ legend:{ labels:{ boxWidth:12 } } },\n  scales:{ x:{ title:{ display:true, text:\"medida\" } } } };\nconst serie = (rotulo, cor) => ({ label:rotulo, data:[], borderColor:cor, backgroundColor:cor,\n                                  tension:.25, pointRadius:2, borderWidth:2 });\nconst gRssi = new Chart(document.getElementById(\"g-rssi\"), { type:\"line\", options:opcoes,\n  data:{ labels:[], datasets:[ serie(\"UL\", \"#3fa7ff\"), serie(\"DL\", \"#f2a541\") ] } });\nconst gSnr = new Chart(document.getElementById(\"g-snr\"), { type:\"line\", options:opcoes,\n  data:{ labels:[], datasets:[ serie(\"UL\", \"#3fa7ff\"), serie(\"DL\", \"#f2a541\") ] } });\n\n// ---------- Estado da rodada ----------\nlet rssiUl = [];\nconst $ = id => document.getElementById(id);\nconst fmt = (v, d = 1) => (v === null || v === undefined) ? \"–\" : Number(v).toFixed(d);\nconst cor = (v, bom, ruim) => v >= bom ? \"var(--ok)\" : v >= ruim ? \"var(--warn)\" : \"var(--bad)\";\n\nfunction desvio(a) {\n  if (a.length < 2) return null;\n  const m = a.reduce((s, x) => s + x, 0) / a.length;\n  return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1));\n}\n\nfunction limpar() {\n  rssiUl = [];\n  for (const g of [gRssi, gSnr]) { g.data.labels = []; g.data.datasets.forEach(d => d.data = []); g.update(); }\n  $(\"tab\").innerHTML = \"\"; $(\"n-pac\").textContent = 0;\n  [\"k-psr\",\"k-rul\",\"k-rdl\",\"k-sul\",\"k-sdl\",\"k-mar\",\"k-sig\"].forEach(id => $(id).textContent = \"–\");\n}\n$(\"limpar\").onclick = limpar;\n\nfunction trataDL(p) {\n  $(\"c-sf\").textContent = p.sf; $(\"c-bw\").textContent = p.bw;\n  $(\"c-cr\").textContent = \"4/\" + p.cr; $(\"c-pot\").textContent = p.pot;\n  if (p.nova_rodada) limpar();\n  if (p.medida >= 1) {\n    $(\"k-med\").textContent = p.medida; $(\"k-tot\").textContent = p.total;\n    $(\"b-med\").style.width = (100 * p.medida / Math.max(p.total, 1)) + \"%\";\n  }\n}\n\nfunction trataUL(p) {\n  if (!p.valido) return;   // respostas de teste de enlace / configuração\n  rssiUl.push(p.rssi_ul);\n\n  $(\"k-rul\").textContent = fmt(p.rssi_ul); $(\"k-rdl\").textContent = fmt(p.rssi_dl);\n  $(\"k-sul\").textContent = fmt(p.snr_ul, 2); $(\"k-sdl\").textContent = fmt(p.snr_dl, 2);\n  $(\"k-mar\").textContent = fmt(p.margem); $(\"k-sig\").textContent = fmt(desvio(rssiUl), 2);\n  $(\"b-mar\").style.width = Math.min(100, Math.max(0, p.margem)) + \"%\";\n  $(\"b-mar\").style.background = cor(p.margem, 20, 10);\n  if (p.psr !== null) {\n    $(\"k-psr\").textContent = fmt(p.psr) + \" %\";\n    $(\"k-psr\").style.color = cor(p.psr, 95, 80);\n    $(\"b-psr\").style.width = p.psr + \"%\"; $(\"b-psr\").style.background = cor(p.psr, 95, 80);\n  }\n\n  gRssi.data.labels.push(p.medida); gSnr.data.labels.push(p.medida);\n  gRssi.data.datasets[0].data.push(p.rssi_ul); gRssi.data.datasets[1].data.push(p.rssi_dl);\n  gSnr.data.datasets[0].data.push(p.snr_ul); gSnr.data.datasets[1].data.push(p.snr_dl);\n  gRssi.update(); gSnr.update();\n\n  const hora = new Date(p.t).toLocaleTimeString(\"pt-BR\");\n  const tr = document.createElement(\"tr\");\n  tr.innerHTML = `<td>${hora}</td><td>${p.medida}</td><td class=\"ul\">${fmt(p.rssi_ul)}</td><td class=\"ul\">${fmt(p.snr_ul,2)}</td>` +\n                 `<td class=\"dl\">${fmt(p.rssi_dl)}</td><td class=\"dl\">${fmt(p.snr_dl,2)}</td><td>${fmt(p.psr)} %</td>`;\n  $(\"tab\").prepend(tr);\n  $(\"n-pac\").textContent = $(\"tab\").children.length;\n}\n\n// ---------- WebSocket do Node-RED ----------\nfunction conecta() {\n  const ws = new WebSocket((location.protocol === \"https:\" ? \"wss://\" : \"ws://\") + location.host + \"/ws/lora\");\n  ws.onopen  = () => { $(\"dot\").classList.add(\"on\"); $(\"st\").textContent = \"Conectado ao Node-RED\"; };\n  ws.onclose = () => { $(\"dot\").classList.remove(\"on\"); $(\"st\").textContent = \"Reconectando…\"; setTimeout(conecta, 2000); };\n  ws.onmessage = ev => {\n    const p = JSON.parse(ev.data);\n    if (p.tipo === \"dl\") trataDL(p); else if (p.tipo === \"ul\") trataUL(p);\n  };\n}\nconecta();\n</script>\n</body>\n</html>\n",
+  "template": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Hidrômetro LoRa · Monitor do enlace</title>\n<script src=\"https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js\"></script>\n<style>\n  :root { --bg:#0f1720; --card:#17212c; --borda:#243241; --txt:#e6edf3; --sub:#8b9bb0;\n          --ul:#3fa7ff; --dl:#f2a541; --ok:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; }\n  * { box-sizing:border-box; }\n  body { margin:0; font-family:Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--txt); }\n  header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;\n           padding:16px 24px; border-bottom:1px solid var(--borda); }\n  h1 { font-size:20px; margin:0; font-weight:600; }\n  h1 small { display:block; font-size:12px; color:var(--sub); font-weight:400; margin-top:2px; }\n  .chips { display:flex; gap:8px; flex-wrap:wrap; }\n  .chip { background:var(--card); border:1px solid var(--borda); border-radius:14px; padding:4px 10px; font-size:12px; color:var(--sub); }\n  .chip b { color:var(--txt); }\n  .status { display:flex; align-items:center; gap:8px; font-size:13px; }\n  .dot { width:10px; height:10px; border-radius:50%; background:var(--bad); }\n  .dot.on { background:var(--ok); box-shadow:0 0 8px var(--ok); }\n  .barra-teste { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 24px;\n                 border-bottom:1px solid var(--borda); background:#131c26; }\n  .barra-teste input[type=text] { background:var(--bg); color:var(--txt); border:1px solid var(--borda);\n                 border-radius:6px; padding:7px 10px; width:300px; font-size:14px; }\n  .info-teste { font-size:13px; color:var(--sub); margin-left:auto; }\n  .info-teste b { color:var(--txt); }\n  .aviso { display:none; padding:6px 12px; border-radius:6px; font-size:13px; }\n  .aviso.fim { display:inline-block; background:rgba(46,204,113,.15); color:var(--ok); }\n  .aviso.rev { display:inline-block; background:rgba(242,165,65,.15); color:var(--dl); }\n  main { padding:20px 24px; display:grid; gap:16px; }\n  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }\n  .kpi { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }\n  .kpi .rot { font-size:12px; color:var(--sub); }\n  .kpi .val { font-size:28px; font-weight:600; margin-top:4px; }\n  .kpi .un { font-size:13px; color:var(--sub); font-weight:400; }\n  .kpi .barra { height:6px; background:var(--borda); border-radius:3px; margin-top:10px; overflow:hidden; }\n  .kpi .barra i { display:block; height:100%; width:0; border-radius:3px; transition:width .4s; }\n  .ul { color:var(--ul); } .dl { color:var(--dl); }\n  .graficos { display:grid; grid-template-columns:2fr 1fr; gap:16px; }\n  .card { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }\n  .card h2 { font-size:14px; margin:0 0 10px; font-weight:600; color:var(--sub); }\n  .alto { height:260px; }\n  .rolagem { max-height:420px; overflow-y:auto; }\n  table { width:100%; border-collapse:collapse; font-size:13px; }\n  th, td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--borda); }\n  th { color:var(--sub); font-weight:500; } th:first-child, td:first-child { text-align:left; }\n  thead th { position:sticky; top:0; background:var(--card); }\n  button { background:transparent; color:var(--sub); border:1px solid var(--borda); border-radius:6px;\n           padding:7px 12px; cursor:pointer; font-size:13px; }\n  button:hover { color:var(--txt); border-color:var(--sub); }\n  button.prim { background:#1f5fbf; border-color:#1f5fbf; color:#fff; }\n  button.destaque { background:var(--ok); border-color:var(--ok); color:#0f1720; font-weight:600; }\n  button:disabled { opacity:.4; cursor:default; }\n  @media (max-width:900px) { .graficos { grid-template-columns:1fr; } }\n</style>\n</head>\n<body>\n<header>\n  <h1>Hidrômetro LoRa · Monitor do enlace\n    <small>IE350 · Lucas Chiomark Pereira Santos · RA 195111 · tópico mot_lora_195111</small></h1>\n  <div class=\"chips\">\n    <span class=\"chip\">SF <b id=\"c-sf\">–</b></span>\n    <span class=\"chip\">BW <b id=\"c-bw\">–</b> kHz</span>\n    <span class=\"chip\">CR <b id=\"c-cr\">–</b></span>\n    <span class=\"chip\">Pot <b id=\"c-pot\">–</b> dBm</span>\n  </div>\n  <div class=\"status\"><span class=\"dot\" id=\"dot\"></span><span id=\"st\">Conectando…</span></div>\n</header>\n\n<div class=\"barra-teste\">\n  <input type=\"text\" id=\"nome\" placeholder=\"Nome do teste (ex.: A1_GWterreo_No2and_mov)\">\n  <button class=\"prim\" id=\"b-novo\">Novo teste</button>\n  <button id=\"b-exp\" disabled>Exportar CSV</button>\n  <button id=\"b-imp\">Importar</button>\n  <input type=\"file\" id=\"arq\" accept=\".csv,.txt\" hidden>\n  <span class=\"aviso\" id=\"aviso\"></span>\n  <span class=\"info-teste\">Teste: <b id=\"t-nome\">sem nome</b> · início <b id=\"t-ini\">–</b></span>\n</div>\n\n<main>\n  <section class=\"kpis\">\n    <div class=\"kpi\"><div class=\"rot\">Medida</div><div class=\"val\"><span id=\"k-med\">–</span> <span class=\"un\">/ <span id=\"k-tot\">–</span></span></div>\n      <div class=\"barra\"><i id=\"b-med\" style=\"background:var(--sub)\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot\">PSR (taxa de sucesso)</div><div class=\"val\" id=\"k-psr\">–</div>\n      <div class=\"barra\"><i id=\"b-psr\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot ul\">RSSI subida (UL)</div><div class=\"val\"><span id=\"k-rul\">–</span> <span class=\"un\">dBm</span></div></div>\n    <div class=\"kpi\"><div class=\"rot dl\">RSSI descida (DL)</div><div class=\"val\"><span id=\"k-rdl\">–</span> <span class=\"un\">dBm</span></div></div>\n    <div class=\"kpi\"><div class=\"rot ul\">SNR subida</div><div class=\"val\"><span id=\"k-sul\">–</span> <span class=\"un\">dB</span></div></div>\n    <div class=\"kpi\"><div class=\"rot dl\">SNR descida</div><div class=\"val\"><span id=\"k-sdl\">–</span> <span class=\"un\">dB</span></div></div>\n    <div class=\"kpi\"><div class=\"rot\">Margem do enlace</div><div class=\"val\"><span id=\"k-mar\">–</span> <span class=\"un\">dB</span></div>\n      <div class=\"barra\"><i id=\"b-mar\"></i></div></div>\n    <div class=\"kpi\"><div class=\"rot\">σ RSSI UL (teste)</div><div class=\"val\"><span id=\"k-sig\">–</span> <span class=\"un\">dB</span></div></div>\n  </section>\n\n  <section class=\"graficos\">\n    <div class=\"card\"><h2>RSSI por medida (dBm)</h2><div class=\"alto\"><canvas id=\"g-rssi\"></canvas></div></div>\n    <div class=\"card\"><h2>SNR por medida (dB)</h2><div class=\"alto\"><canvas id=\"g-snr\"></canvas></div></div>\n  </section>\n\n  <section class=\"card\">\n    <h2>Pacotes do teste (<span id=\"n-pac\">0</span>)</h2>\n    <div class=\"rolagem\"><table><thead><tr><th>Hora</th><th>Medida</th><th>RSSI UL</th><th>SNR UL</th><th>RSSI DL</th><th>SNR DL</th><th>PSR</th></tr></thead>\n      <tbody id=\"tab\"></tbody></table></div>\n  </section>\n</main>\n\n<script>\n// =============================================================================\n// Estado do teste. Cada pacote UL válido vira um registro em teste.pacotes;\n// é dessa lista que saem a tela, a exportação e o backup no navegador.\n// =============================================================================\nconst SENSIBILIDADE_SF12 = -137;          // dBm, SX1276 com BW 125 kHz\nconst CHAVE_BACKUP = \"ie350_teste_atual\";\nconst COLUNAS = [\"teste\",\"data_hora\",\"medida\",\"total\",\"rssi_ul\",\"snr_ul\",\"rssi_dl\",\"snr_dl\",\"psr\",\"margem\",\"sf\",\"bw\",\"cr\",\"pot\"];\n\nlet teste = novoEstado(\"sem_nome\");\nlet modo = \"aovivo\";                       // \"aovivo\" ou \"revisao\" (arquivo importado)\n\nfunction novoEstado(nome) {\n  return { nome, inicio: null, config: {}, pacotes: [], finalizado: false };\n}\n\n// ---------- utilidades ----------\nconst $ = id => document.getElementById(id);\nconst fmt = (v, d = 1) => (v === null || v === undefined || isNaN(v)) ? \"–\" : Number(v).toFixed(d);\nconst cor = (v, bom, ruim) => v >= bom ? \"var(--ok)\" : v >= ruim ? \"var(--warn)\" : \"var(--bad)\";\nconst limpaNome = s => (s || \"\").trim().replace(/[^\\w\\-]+/g, \"_\") || \"sem_nome\";\nconst dataHora = t => new Date(t).toLocaleString(\"pt-BR\");\n// Hora local no formato AAAA-MM-DD HH:MM:SS (mesmo relógio das anotações de campo)\nconst horaLocal = t => { const d = new Date(t), z = n => String(n).padStart(2, \"0\");\n  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`; };\n\nfunction desvio(a) {\n  if (a.length < 2) return null;\n  const m = a.reduce((s, x) => s + x, 0) / a.length;\n  return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1));\n}\n\n// ---------- gráficos ----------\nChart.defaults.color = \"#8b9bb0\";\nChart.defaults.borderColor = \"#243241\";\nconst opcoes = { responsive:true, maintainAspectRatio:false, animation:false,\n  plugins:{ legend:{ labels:{ boxWidth:12 } } }, scales:{ x:{ title:{ display:true, text:\"medida\" } } } };\nconst serie = (rotulo, c) => ({ label:rotulo, data:[], borderColor:c, backgroundColor:c, tension:.25, pointRadius:2, borderWidth:2 });\nconst gRssi = new Chart($(\"g-rssi\"), { type:\"line\", options:opcoes, data:{ labels:[], datasets:[serie(\"UL\",\"#3fa7ff\"), serie(\"DL\",\"#f2a541\")] } });\nconst gSnr  = new Chart($(\"g-snr\"),  { type:\"line\", options:opcoes, data:{ labels:[], datasets:[serie(\"UL\",\"#3fa7ff\"), serie(\"DL\",\"#f2a541\")] } });\n\n// ---------- desenho da tela ----------\nfunction limpaTela() {\n  for (const g of [gRssi, gSnr]) { g.data.labels = []; g.data.datasets.forEach(d => d.data = []); g.update(); }\n  $(\"tab\").innerHTML = \"\"; $(\"n-pac\").textContent = 0;\n  [\"k-med\",\"k-tot\",\"k-psr\",\"k-rul\",\"k-rdl\",\"k-sul\",\"k-sdl\",\"k-mar\",\"k-sig\"].forEach(id => $(id).textContent = \"–\");\n  [\"b-med\",\"b-psr\",\"b-mar\"].forEach(id => $(id).style.width = 0);\n  $(\"k-psr\").style.color = \"\";\n}\n\nfunction mostraConfig(c) {\n  $(\"c-sf\").textContent = c.sf ?? \"–\"; $(\"c-bw\").textContent = c.bw ?? \"–\";\n  $(\"c-cr\").textContent = c.cr ? \"4/\" + c.cr : \"–\"; $(\"c-pot\").textContent = c.pot ?? \"–\";\n}\n\nfunction mostraCabecalho() {\n  $(\"t-nome\").textContent = teste.nome;\n  $(\"t-ini\").textContent = teste.inicio ? dataHora(teste.inicio) : \"–\";\n  $(\"b-exp\").disabled = teste.pacotes.length === 0;\n  $(\"b-exp\").classList.toggle(\"destaque\", teste.finalizado && modo === \"aovivo\");\n  const av = $(\"aviso\");\n  av.className = \"aviso\";\n  if (modo === \"revisao\") { av.classList.add(\"rev\"); av.textContent = \"Modo revisão: arquivo importado\"; }\n  else if (teste.finalizado) { av.classList.add(\"fim\"); av.textContent = \"Teste finalizado: exporte os dados\"; }\n}\n\nfunction desenhaPacote(p) {\n  $(\"k-med\").textContent = p.medida; $(\"k-tot\").textContent = p.total || \"–\";\n  if (p.total) $(\"b-med\").style.width = (100 * p.medida / p.total) + \"%\";\n  $(\"k-rul\").textContent = fmt(p.rssi_ul); $(\"k-rdl\").textContent = fmt(p.rssi_dl);\n  $(\"k-sul\").textContent = fmt(p.snr_ul, 2); $(\"k-sdl\").textContent = fmt(p.snr_dl, 2);\n  $(\"k-mar\").textContent = fmt(p.margem);\n  $(\"b-mar\").style.width = Math.min(100, Math.max(0, p.margem)) + \"%\";\n  $(\"b-mar\").style.background = cor(p.margem, 20, 10);\n  if (p.psr !== null && !isNaN(p.psr)) {\n    $(\"k-psr\").textContent = fmt(p.psr) + \" %\"; $(\"k-psr\").style.color = cor(p.psr, 95, 80);\n    $(\"b-psr\").style.width = p.psr + \"%\"; $(\"b-psr\").style.background = cor(p.psr, 95, 80);\n  }\n  $(\"k-sig\").textContent = fmt(desvio(teste.pacotes.map(x => x.rssi_ul)), 2);\n\n  gRssi.data.labels.push(p.medida); gSnr.data.labels.push(p.medida);\n  gRssi.data.datasets[0].data.push(p.rssi_ul); gRssi.data.datasets[1].data.push(p.rssi_dl);\n  gSnr.data.datasets[0].data.push(p.snr_ul); gSnr.data.datasets[1].data.push(p.snr_dl);\n\n  const tr = document.createElement(\"tr\");\n  tr.innerHTML = `<td>${new Date(p.t).toLocaleTimeString(\"pt-BR\")}</td><td>${p.medida}</td>` +\n    `<td class=\"ul\">${fmt(p.rssi_ul)}</td><td class=\"ul\">${fmt(p.snr_ul,2)}</td>` +\n    `<td class=\"dl\">${fmt(p.rssi_dl)}</td><td class=\"dl\">${fmt(p.snr_dl,2)}</td><td>${fmt(p.psr)} %</td>`;\n  $(\"tab\").prepend(tr);\n  $(\"n-pac\").textContent = teste.pacotes.length;\n}\n\nfunction redesenhaTudo() {\n  limpaTela(); mostraConfig(teste.config); mostraCabecalho();\n  const todos = teste.pacotes; teste.pacotes = [];\n  for (const p of todos) { teste.pacotes.push(p); desenhaPacote(p); }\n  gRssi.update(); gSnr.update();\n}\n\n// ---------- backup no navegador (sobrevive a um F5) ----------\nfunction salvaBackup() {\n  try { localStorage.setItem(CHAVE_BACKUP, JSON.stringify(teste)); } catch (e) { /* sem armazenamento */ }\n}\nfunction restauraBackup() {\n  try {\n    const t = JSON.parse(localStorage.getItem(CHAVE_BACKUP) || \"null\");\n    if (t && Array.isArray(t.pacotes)) { teste = t; $(\"nome\").value = t.nome === \"sem_nome\" ? \"\" : t.nome; }\n  } catch (e) { /* ignora backup inválido */ }\n  redesenhaTudo();\n}\n\n// ---------- botões ----------\n$(\"b-novo\").onclick = () => {\n  if (teste.pacotes.length && !confirmaDescarte()) return;\n  modo = \"aovivo\";\n  teste = novoEstado(limpaNome($(\"nome\").value));\n  salvaBackup(); redesenhaTudo();\n};\n\nfunction confirmaDescarte() {\n  // Aviso discreto em vez de diálogo do navegador: segundo clique confirma\n  const b = $(\"b-novo\");\n  if (b.dataset.confirmar === \"1\") { b.dataset.confirmar = \"\"; b.textContent = \"Novo teste\"; return true; }\n  b.dataset.confirmar = \"1\"; b.textContent = \"Descartar dados? Clique de novo\";\n  setTimeout(() => { b.dataset.confirmar = \"\"; b.textContent = \"Novo teste\"; }, 4000);\n  return false;\n}\n\n$(\"b-exp\").onclick = () => {\n  const linhas = [COLUNAS.join(\",\")];\n  for (const p of teste.pacotes) {\n    const r = { teste: teste.nome, data_hora: horaLocal(p.t), medida: p.medida, total: p.total,\n      rssi_ul: p.rssi_ul, snr_ul: p.snr_ul, rssi_dl: p.rssi_dl, snr_dl: p.snr_dl, psr: p.psr, margem: p.margem,\n      sf: teste.config.sf, bw: teste.config.bw, cr: teste.config.cr, pot: teste.config.pot };\n    linhas.push(COLUNAS.map(c => r[c] ?? \"\").join(\",\"));\n  }\n  const carimbo = horaLocal(teste.inicio || Date.now()).slice(0, 16).replace(\" \", \"_\").replace(\":\", \"-\");\n  const blob = new Blob([linhas.join(\"\\n\") + \"\\n\"], { type: \"text/csv\" });\n  const a = document.createElement(\"a\");\n  a.href = URL.createObjectURL(blob); a.download = `${teste.nome}_${carimbo}.csv`; a.click();\n  URL.revokeObjectURL(a.href);\n};\n\n$(\"b-imp\").onclick = () => $(\"arq\").click();\n$(\"arq\").onchange = async ev => {\n  const f = ev.target.files[0]; if (!f) return;\n  const texto = await f.text(); ev.target.value = \"\";\n  try {\n    teste = texto.startsWith(\"Time stamp\") ? lerTxtFramework(texto, f.name) : lerCsvExportado(texto, f.name);\n    modo = \"revisao\"; $(\"nome\").value = teste.nome; redesenhaTudo();\n  } catch (e) { $(\"aviso\").className = \"aviso rev\"; $(\"aviso\").textContent = \"Arquivo não reconhecido\"; }\n};\n\n// ---------- leitura de arquivos ----------\nfunction lerCsvExportado(texto, arquivo) {\n  const [cab, ...linhas] = texto.trim().split(/\\r?\\n/);\n  const col = cab.split(\",\");\n  const regs = linhas.map(l => Object.fromEntries(l.split(\",\").map((v, i) => [col[i], v])));\n  if (!col.includes(\"rssi_ul\")) throw new Error(\"csv\");\n  const num = v => v === \"\" ? null : Number(v);\n  const t = novoEstado(regs[0]?.teste || arquivo.replace(/\\.csv$/i, \"\"));\n  t.config = { sf: num(regs[0]?.sf), bw: num(regs[0]?.bw), cr: num(regs[0]?.cr), pot: num(regs[0]?.pot) };\n  t.pacotes = regs.map(r => ({ t: Date.parse(r.data_hora.replace(\" \", \"T\")), medida: num(r.medida), total: num(r.total),\n    rssi_ul: num(r.rssi_ul), snr_ul: num(r.snr_ul), rssi_dl: num(r.rssi_dl), snr_dl: num(r.snr_dl),\n    psr: num(r.psr), margem: num(r.margem) }));\n  t.inicio = t.pacotes[0]?.t || null; t.finalizado = true;\n  return t;\n}\n\n// Arquivo bruto do framework (3_N4_Armazenamento/Dados_Brutos/Rodada_Teste_*.txt):\n// data, contador, 20 bytes DL, 20 bytes UL. UL todo com 9 = pacote perdido.\nfunction lerTxtFramework(texto, arquivo) {\n  const rssi = v => (v > 128 ? v - 256 : v) / 2 - 74, snr = v => v / 4 - 30;\n  const BW = { 1:125, 2:250, 3:500 };\n  const linhas = texto.trim().split(/\\r?\\n/).slice(1).map(l => l.split(\",\").map(s => s.trim()));\n  const t = novoEstado(arquivo.replace(/\\.txt$/i, \"\"));\n  let enviados = 0, recebidos = 0;\n  for (const p of linhas) {\n    const dl = p.slice(2, 22).map(Number), ul = p.slice(22, 42).map(Number);\n    if (!t.config.sf) t.config = { sf: dl[0], bw: BW[dl[1]] || dl[1], cr: dl[2], pot: dl[3] };\n    enviados++;\n    if (ul.every(b => b === 9)) continue;\n    recebidos++;\n    const r = { t: Date.parse(p[0]) || Date.now(), medida: Number(p[1]), total: dl[4] * 256 + dl[5],\n      rssi_dl: rssi(ul[0]), snr_dl: snr(ul[1]), rssi_ul: rssi(ul[2]), snr_ul: snr(ul[3]) };\n    r.margem = Math.min(r.rssi_ul, r.rssi_dl) - SENSIBILIDADE_SF12;\n    r.psr = Math.round(1000 * recebidos / enviados) / 10;\n    t.pacotes.push(r);\n  }\n  t.inicio = t.pacotes[0]?.t || null; t.finalizado = true;\n  return t;\n}\n\n// ---------- dados ao vivo (WebSocket do Node-RED) ----------\nfunction trataDL(p) {\n  if (modo === \"revisao\") return;\n  teste.config = { sf: p.sf, bw: p.bw, cr: p.cr, pot: p.pot };\n  mostraConfig(teste.config);\n  if (p.nova_rodada) {\n    // Medida 1: começa a gravar. Se já havia pacotes de outra rodada, zera mantendo o nome.\n    const nome = teste.nome;\n    teste = novoEstado(nome); teste.config = { sf: p.sf, bw: p.bw, cr: p.cr, pot: p.pot };\n    teste.inicio = p.t; redesenhaTudo();\n  }\n  if (p.medida >= 1) {\n    $(\"k-med\").textContent = p.medida; $(\"k-tot\").textContent = p.total;\n    $(\"b-med\").style.width = (100 * p.medida / Math.max(p.total, 1)) + \"%\";\n  }\n}\n\nfunction trataUL(p) {\n  if (modo === \"revisao\" || !p.valido) return;\n  if (!teste.inicio) teste.inicio = p.t;\n  const r = { t: p.t, medida: p.medida, total: p.total, rssi_ul: p.rssi_ul, snr_ul: p.snr_ul,\n              rssi_dl: p.rssi_dl, snr_dl: p.snr_dl, psr: p.psr, margem: p.margem };\n  teste.pacotes.push(r); desenhaPacote(r); gRssi.update(); gSnr.update();\n  if (p.estado === 5 || (p.total && p.medida >= p.total)) teste.finalizado = true;\n  mostraCabecalho(); salvaBackup();\n}\n\nfunction conecta() {\n  const ws = new WebSocket((location.protocol === \"https:\" ? \"wss://\" : \"ws://\") + location.host + \"/ws/lora\");\n  ws.onopen  = () => { $(\"dot\").classList.add(\"on\"); $(\"st\").textContent = \"Conectado ao Node-RED\"; };\n  ws.onclose = () => { $(\"dot\").classList.remove(\"on\"); $(\"st\").textContent = \"Reconectando…\"; setTimeout(conecta, 2000); };\n  ws.onmessage = ev => {\n    const p = JSON.parse(ev.data);\n    if (p.tipo === \"dl\") trataDL(p); else if (p.tipo === \"ul\") trataUL(p);\n  };\n}\n\nrestauraBackup();\nconecta();\n</script>\n</body>\n</html>\n",
   "output": "str",
   "x": 330,
   "y": 320,
   "wires": [
    [
-    "68ead0aaa2921229"
+    "d26d6cef845a7801"
    ]
   ]
  },
  {
-  "id": "68ead0aaa2921229",
+  "id": "d26d6cef845a7801",
   "type": "http response",
-  "z": "a6042a53f728d6d0",
+  "z": "4adfc191bf4c7127",
   "name": "",
   "statusCode": "",
   "headers": {

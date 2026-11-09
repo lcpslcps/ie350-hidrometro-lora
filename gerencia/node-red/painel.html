@@ -20,6 +20,15 @@
   .status { display:flex; align-items:center; gap:8px; font-size:13px; }
   .dot { width:10px; height:10px; border-radius:50%; background:var(--bad); }
   .dot.on { background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  .barra-teste { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 24px;
+                 border-bottom:1px solid var(--borda); background:#131c26; }
+  .barra-teste input[type=text] { background:var(--bg); color:var(--txt); border:1px solid var(--borda);
+                 border-radius:6px; padding:7px 10px; width:300px; font-size:14px; }
+  .info-teste { font-size:13px; color:var(--sub); margin-left:auto; }
+  .info-teste b { color:var(--txt); }
+  .aviso { display:none; padding:6px 12px; border-radius:6px; font-size:13px; }
+  .aviso.fim { display:inline-block; background:rgba(46,204,113,.15); color:var(--ok); }
+  .aviso.rev { display:inline-block; background:rgba(242,165,65,.15); color:var(--dl); }
   main { padding:20px 24px; display:grid; gap:16px; }
   .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
   .kpi { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }
@@ -34,12 +43,16 @@
   .card h2 { font-size:14px; margin:0 0 10px; font-weight:600; color:var(--sub); }
   .alto { height:260px; }
   .rolagem { max-height:420px; overflow-y:auto; }
-  thead th { position:sticky; top:0; background:var(--card); }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--borda); }
   th { color:var(--sub); font-weight:500; } th:first-child, td:first-child { text-align:left; }
-  button { background:transparent; color:var(--sub); border:1px solid var(--borda); border-radius:6px; padding:6px 12px; cursor:pointer; }
+  thead th { position:sticky; top:0; background:var(--card); }
+  button { background:transparent; color:var(--sub); border:1px solid var(--borda); border-radius:6px;
+           padding:7px 12px; cursor:pointer; font-size:13px; }
   button:hover { color:var(--txt); border-color:var(--sub); }
+  button.prim { background:#1f5fbf; border-color:#1f5fbf; color:#fff; }
+  button.destaque { background:var(--ok); border-color:var(--ok); color:#0f1720; font-weight:600; }
+  button:disabled { opacity:.4; cursor:default; }
   @media (max-width:900px) { .graficos { grid-template-columns:1fr; } }
 </style>
 </head>
@@ -47,15 +60,24 @@
 <header>
   <h1>Hidrômetro LoRa · Monitor do enlace
     <small>IE350 · Lucas Chiomark Pereira Santos · RA 195111 · tópico mot_lora_195111</small></h1>
-  <div class="chips" id="chips">
+  <div class="chips">
     <span class="chip">SF <b id="c-sf">–</b></span>
     <span class="chip">BW <b id="c-bw">–</b> kHz</span>
     <span class="chip">CR <b id="c-cr">–</b></span>
     <span class="chip">Pot <b id="c-pot">–</b> dBm</span>
   </div>
-  <div class="status"><span class="dot" id="dot"></span><span id="st">Conectando…</span>
-    <button id="limpar">Limpar</button></div>
+  <div class="status"><span class="dot" id="dot"></span><span id="st">Conectando…</span></div>
 </header>
+
+<div class="barra-teste">
+  <input type="text" id="nome" placeholder="Nome do teste (ex.: A1_GWterreo_No2and_mov)">
+  <button class="prim" id="b-novo">Novo teste</button>
+  <button id="b-exp" disabled>Exportar CSV</button>
+  <button id="b-imp">Importar</button>
+  <input type="file" id="arq" accept=".csv,.txt" hidden>
+  <span class="aviso" id="aviso"></span>
+  <span class="info-teste">Teste: <b id="t-nome">sem nome</b> · início <b id="t-ini">–</b></span>
+</div>
 
 <main>
   <section class="kpis">
@@ -69,7 +91,7 @@
     <div class="kpi"><div class="rot dl">SNR descida</div><div class="val"><span id="k-sdl">–</span> <span class="un">dB</span></div></div>
     <div class="kpi"><div class="rot">Margem do enlace</div><div class="val"><span id="k-mar">–</span> <span class="un">dB</span></div>
       <div class="barra"><i id="b-mar"></i></div></div>
-    <div class="kpi"><div class="rot">σ RSSI UL (rodada)</div><div class="val"><span id="k-sig">–</span> <span class="un">dB</span></div></div>
+    <div class="kpi"><div class="rot">σ RSSI UL (teste)</div><div class="val"><span id="k-sig">–</span> <span class="un">dB</span></div></div>
   </section>
 
   <section class="graficos">
@@ -78,31 +100,37 @@
   </section>
 
   <section class="card">
-    <h2>Pacotes da rodada (<span id="n-pac">0</span>)</h2>
+    <h2>Pacotes do teste (<span id="n-pac">0</span>)</h2>
     <div class="rolagem"><table><thead><tr><th>Hora</th><th>Medida</th><th>RSSI UL</th><th>SNR UL</th><th>RSSI DL</th><th>SNR DL</th><th>PSR</th></tr></thead>
       <tbody id="tab"></tbody></table></div>
   </section>
 </main>
 
 <script>
-// ---------- Gráficos ----------
-Chart.defaults.color = "#8b9bb0";
-Chart.defaults.borderColor = "#243241";
-const opcoes = { responsive:true, maintainAspectRatio:false, animation:false,
-  plugins:{ legend:{ labels:{ boxWidth:12 } } },
-  scales:{ x:{ title:{ display:true, text:"medida" } } } };
-const serie = (rotulo, cor) => ({ label:rotulo, data:[], borderColor:cor, backgroundColor:cor,
-                                  tension:.25, pointRadius:2, borderWidth:2 });
-const gRssi = new Chart(document.getElementById("g-rssi"), { type:"line", options:opcoes,
-  data:{ labels:[], datasets:[ serie("UL", "#3fa7ff"), serie("DL", "#f2a541") ] } });
-const gSnr = new Chart(document.getElementById("g-snr"), { type:"line", options:opcoes,
-  data:{ labels:[], datasets:[ serie("UL", "#3fa7ff"), serie("DL", "#f2a541") ] } });
+// =============================================================================
+// Estado do teste. Cada pacote UL válido vira um registro em teste.pacotes;
+// é dessa lista que saem a tela, a exportação e o backup no navegador.
+// =============================================================================
+const SENSIBILIDADE_SF12 = -137;          // dBm, SX1276 com BW 125 kHz
+const CHAVE_BACKUP = "ie350_teste_atual";
+const COLUNAS = ["teste","data_hora","medida","total","rssi_ul","snr_ul","rssi_dl","snr_dl","psr","margem","sf","bw","cr","pot"];
 
-// ---------- Estado da rodada ----------
-let rssiUl = [];
+let teste = novoEstado("sem_nome");
+let modo = "aovivo";                       // "aovivo" ou "revisao" (arquivo importado)
+
+function novoEstado(nome) {
+  return { nome, inicio: null, config: {}, pacotes: [], finalizado: false };
+}
+
+// ---------- utilidades ----------
 const $ = id => document.getElementById(id);
-const fmt = (v, d = 1) => (v === null || v === undefined) ? "–" : Number(v).toFixed(d);
+const fmt = (v, d = 1) => (v === null || v === undefined || isNaN(v)) ? "–" : Number(v).toFixed(d);
 const cor = (v, bom, ruim) => v >= bom ? "var(--ok)" : v >= ruim ? "var(--warn)" : "var(--bad)";
+const limpaNome = s => (s || "").trim().replace(/[^\w\-]+/g, "_") || "sem_nome";
+const dataHora = t => new Date(t).toLocaleString("pt-BR");
+// Hora local no formato AAAA-MM-DD HH:MM:SS (mesmo relógio das anotações de campo)
+const horaLocal = t => { const d = new Date(t), z = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`; };
 
 function desvio(a) {
   if (a.length < 2) return null;
@@ -110,18 +138,178 @@ function desvio(a) {
   return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1));
 }
 
-function limpar() {
-  rssiUl = [];
+// ---------- gráficos ----------
+Chart.defaults.color = "#8b9bb0";
+Chart.defaults.borderColor = "#243241";
+const opcoes = { responsive:true, maintainAspectRatio:false, animation:false,
+  plugins:{ legend:{ labels:{ boxWidth:12 } } }, scales:{ x:{ title:{ display:true, text:"medida" } } } };
+const serie = (rotulo, c) => ({ label:rotulo, data:[], borderColor:c, backgroundColor:c, tension:.25, pointRadius:2, borderWidth:2 });
+const gRssi = new Chart($("g-rssi"), { type:"line", options:opcoes, data:{ labels:[], datasets:[serie("UL","#3fa7ff"), serie("DL","#f2a541")] } });
+const gSnr  = new Chart($("g-snr"),  { type:"line", options:opcoes, data:{ labels:[], datasets:[serie("UL","#3fa7ff"), serie("DL","#f2a541")] } });
+
+// ---------- desenho da tela ----------
+function limpaTela() {
   for (const g of [gRssi, gSnr]) { g.data.labels = []; g.data.datasets.forEach(d => d.data = []); g.update(); }
   $("tab").innerHTML = ""; $("n-pac").textContent = 0;
-  ["k-psr","k-rul","k-rdl","k-sul","k-sdl","k-mar","k-sig"].forEach(id => $(id).textContent = "–");
+  ["k-med","k-tot","k-psr","k-rul","k-rdl","k-sul","k-sdl","k-mar","k-sig"].forEach(id => $(id).textContent = "–");
+  ["b-med","b-psr","b-mar"].forEach(id => $(id).style.width = 0);
+  $("k-psr").style.color = "";
 }
-$("limpar").onclick = limpar;
 
+function mostraConfig(c) {
+  $("c-sf").textContent = c.sf ?? "–"; $("c-bw").textContent = c.bw ?? "–";
+  $("c-cr").textContent = c.cr ? "4/" + c.cr : "–"; $("c-pot").textContent = c.pot ?? "–";
+}
+
+function mostraCabecalho() {
+  $("t-nome").textContent = teste.nome;
+  $("t-ini").textContent = teste.inicio ? dataHora(teste.inicio) : "–";
+  $("b-exp").disabled = teste.pacotes.length === 0;
+  $("b-exp").classList.toggle("destaque", teste.finalizado && modo === "aovivo");
+  const av = $("aviso");
+  av.className = "aviso";
+  if (modo === "revisao") { av.classList.add("rev"); av.textContent = "Modo revisão: arquivo importado"; }
+  else if (teste.finalizado) { av.classList.add("fim"); av.textContent = "Teste finalizado: exporte os dados"; }
+}
+
+function desenhaPacote(p) {
+  $("k-med").textContent = p.medida; $("k-tot").textContent = p.total || "–";
+  if (p.total) $("b-med").style.width = (100 * p.medida / p.total) + "%";
+  $("k-rul").textContent = fmt(p.rssi_ul); $("k-rdl").textContent = fmt(p.rssi_dl);
+  $("k-sul").textContent = fmt(p.snr_ul, 2); $("k-sdl").textContent = fmt(p.snr_dl, 2);
+  $("k-mar").textContent = fmt(p.margem);
+  $("b-mar").style.width = Math.min(100, Math.max(0, p.margem)) + "%";
+  $("b-mar").style.background = cor(p.margem, 20, 10);
+  if (p.psr !== null && !isNaN(p.psr)) {
+    $("k-psr").textContent = fmt(p.psr) + " %"; $("k-psr").style.color = cor(p.psr, 95, 80);
+    $("b-psr").style.width = p.psr + "%"; $("b-psr").style.background = cor(p.psr, 95, 80);
+  }
+  $("k-sig").textContent = fmt(desvio(teste.pacotes.map(x => x.rssi_ul)), 2);
+
+  gRssi.data.labels.push(p.medida); gSnr.data.labels.push(p.medida);
+  gRssi.data.datasets[0].data.push(p.rssi_ul); gRssi.data.datasets[1].data.push(p.rssi_dl);
+  gSnr.data.datasets[0].data.push(p.snr_ul); gSnr.data.datasets[1].data.push(p.snr_dl);
+
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${new Date(p.t).toLocaleTimeString("pt-BR")}</td><td>${p.medida}</td>` +
+    `<td class="ul">${fmt(p.rssi_ul)}</td><td class="ul">${fmt(p.snr_ul,2)}</td>` +
+    `<td class="dl">${fmt(p.rssi_dl)}</td><td class="dl">${fmt(p.snr_dl,2)}</td><td>${fmt(p.psr)} %</td>`;
+  $("tab").prepend(tr);
+  $("n-pac").textContent = teste.pacotes.length;
+}
+
+function redesenhaTudo() {
+  limpaTela(); mostraConfig(teste.config); mostraCabecalho();
+  const todos = teste.pacotes; teste.pacotes = [];
+  for (const p of todos) { teste.pacotes.push(p); desenhaPacote(p); }
+  gRssi.update(); gSnr.update();
+}
+
+// ---------- backup no navegador (sobrevive a um F5) ----------
+function salvaBackup() {
+  try { localStorage.setItem(CHAVE_BACKUP, JSON.stringify(teste)); } catch (e) { /* sem armazenamento */ }
+}
+function restauraBackup() {
+  try {
+    const t = JSON.parse(localStorage.getItem(CHAVE_BACKUP) || "null");
+    if (t && Array.isArray(t.pacotes)) { teste = t; $("nome").value = t.nome === "sem_nome" ? "" : t.nome; }
+  } catch (e) { /* ignora backup inválido */ }
+  redesenhaTudo();
+}
+
+// ---------- botões ----------
+$("b-novo").onclick = () => {
+  if (teste.pacotes.length && !confirmaDescarte()) return;
+  modo = "aovivo";
+  teste = novoEstado(limpaNome($("nome").value));
+  salvaBackup(); redesenhaTudo();
+};
+
+function confirmaDescarte() {
+  // Aviso discreto em vez de diálogo do navegador: segundo clique confirma
+  const b = $("b-novo");
+  if (b.dataset.confirmar === "1") { b.dataset.confirmar = ""; b.textContent = "Novo teste"; return true; }
+  b.dataset.confirmar = "1"; b.textContent = "Descartar dados? Clique de novo";
+  setTimeout(() => { b.dataset.confirmar = ""; b.textContent = "Novo teste"; }, 4000);
+  return false;
+}
+
+$("b-exp").onclick = () => {
+  const linhas = [COLUNAS.join(",")];
+  for (const p of teste.pacotes) {
+    const r = { teste: teste.nome, data_hora: horaLocal(p.t), medida: p.medida, total: p.total,
+      rssi_ul: p.rssi_ul, snr_ul: p.snr_ul, rssi_dl: p.rssi_dl, snr_dl: p.snr_dl, psr: p.psr, margem: p.margem,
+      sf: teste.config.sf, bw: teste.config.bw, cr: teste.config.cr, pot: teste.config.pot };
+    linhas.push(COLUNAS.map(c => r[c] ?? "").join(","));
+  }
+  const carimbo = horaLocal(teste.inicio || Date.now()).slice(0, 16).replace(" ", "_").replace(":", "-");
+  const blob = new Blob([linhas.join("\n") + "\n"], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `${teste.nome}_${carimbo}.csv`; a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+$("b-imp").onclick = () => $("arq").click();
+$("arq").onchange = async ev => {
+  const f = ev.target.files[0]; if (!f) return;
+  const texto = await f.text(); ev.target.value = "";
+  try {
+    teste = texto.startsWith("Time stamp") ? lerTxtFramework(texto, f.name) : lerCsvExportado(texto, f.name);
+    modo = "revisao"; $("nome").value = teste.nome; redesenhaTudo();
+  } catch (e) { $("aviso").className = "aviso rev"; $("aviso").textContent = "Arquivo não reconhecido"; }
+};
+
+// ---------- leitura de arquivos ----------
+function lerCsvExportado(texto, arquivo) {
+  const [cab, ...linhas] = texto.trim().split(/\r?\n/);
+  const col = cab.split(",");
+  const regs = linhas.map(l => Object.fromEntries(l.split(",").map((v, i) => [col[i], v])));
+  if (!col.includes("rssi_ul")) throw new Error("csv");
+  const num = v => v === "" ? null : Number(v);
+  const t = novoEstado(regs[0]?.teste || arquivo.replace(/\.csv$/i, ""));
+  t.config = { sf: num(regs[0]?.sf), bw: num(regs[0]?.bw), cr: num(regs[0]?.cr), pot: num(regs[0]?.pot) };
+  t.pacotes = regs.map(r => ({ t: Date.parse(r.data_hora.replace(" ", "T")), medida: num(r.medida), total: num(r.total),
+    rssi_ul: num(r.rssi_ul), snr_ul: num(r.snr_ul), rssi_dl: num(r.rssi_dl), snr_dl: num(r.snr_dl),
+    psr: num(r.psr), margem: num(r.margem) }));
+  t.inicio = t.pacotes[0]?.t || null; t.finalizado = true;
+  return t;
+}
+
+// Arquivo bruto do framework (3_N4_Armazenamento/Dados_Brutos/Rodada_Teste_*.txt):
+// data, contador, 20 bytes DL, 20 bytes UL. UL todo com 9 = pacote perdido.
+function lerTxtFramework(texto, arquivo) {
+  const rssi = v => (v > 128 ? v - 256 : v) / 2 - 74, snr = v => v / 4 - 30;
+  const BW = { 1:125, 2:250, 3:500 };
+  const linhas = texto.trim().split(/\r?\n/).slice(1).map(l => l.split(",").map(s => s.trim()));
+  const t = novoEstado(arquivo.replace(/\.txt$/i, ""));
+  let enviados = 0, recebidos = 0;
+  for (const p of linhas) {
+    const dl = p.slice(2, 22).map(Number), ul = p.slice(22, 42).map(Number);
+    if (!t.config.sf) t.config = { sf: dl[0], bw: BW[dl[1]] || dl[1], cr: dl[2], pot: dl[3] };
+    enviados++;
+    if (ul.every(b => b === 9)) continue;
+    recebidos++;
+    const r = { t: Date.parse(p[0]) || Date.now(), medida: Number(p[1]), total: dl[4] * 256 + dl[5],
+      rssi_dl: rssi(ul[0]), snr_dl: snr(ul[1]), rssi_ul: rssi(ul[2]), snr_ul: snr(ul[3]) };
+    r.margem = Math.min(r.rssi_ul, r.rssi_dl) - SENSIBILIDADE_SF12;
+    r.psr = Math.round(1000 * recebidos / enviados) / 10;
+    t.pacotes.push(r);
+  }
+  t.inicio = t.pacotes[0]?.t || null; t.finalizado = true;
+  return t;
+}
+
+// ---------- dados ao vivo (WebSocket do Node-RED) ----------
 function trataDL(p) {
-  $("c-sf").textContent = p.sf; $("c-bw").textContent = p.bw;
-  $("c-cr").textContent = "4/" + p.cr; $("c-pot").textContent = p.pot;
-  if (p.nova_rodada) limpar();
+  if (modo === "revisao") return;
+  teste.config = { sf: p.sf, bw: p.bw, cr: p.cr, pot: p.pot };
+  mostraConfig(teste.config);
+  if (p.nova_rodada) {
+    // Medida 1: começa a gravar. Se já havia pacotes de outra rodada, zera mantendo o nome.
+    const nome = teste.nome;
+    teste = novoEstado(nome); teste.config = { sf: p.sf, bw: p.bw, cr: p.cr, pot: p.pot };
+    teste.inicio = p.t; redesenhaTudo();
+  }
   if (p.medida >= 1) {
     $("k-med").textContent = p.medida; $("k-tot").textContent = p.total;
     $("b-med").style.width = (100 * p.medida / Math.max(p.total, 1)) + "%";
@@ -129,34 +317,15 @@ function trataDL(p) {
 }
 
 function trataUL(p) {
-  if (!p.valido) return;   // respostas de teste de enlace / configuração
-  rssiUl.push(p.rssi_ul);
-
-  $("k-rul").textContent = fmt(p.rssi_ul); $("k-rdl").textContent = fmt(p.rssi_dl);
-  $("k-sul").textContent = fmt(p.snr_ul, 2); $("k-sdl").textContent = fmt(p.snr_dl, 2);
-  $("k-mar").textContent = fmt(p.margem); $("k-sig").textContent = fmt(desvio(rssiUl), 2);
-  $("b-mar").style.width = Math.min(100, Math.max(0, p.margem)) + "%";
-  $("b-mar").style.background = cor(p.margem, 20, 10);
-  if (p.psr !== null) {
-    $("k-psr").textContent = fmt(p.psr) + " %";
-    $("k-psr").style.color = cor(p.psr, 95, 80);
-    $("b-psr").style.width = p.psr + "%"; $("b-psr").style.background = cor(p.psr, 95, 80);
-  }
-
-  gRssi.data.labels.push(p.medida); gSnr.data.labels.push(p.medida);
-  gRssi.data.datasets[0].data.push(p.rssi_ul); gRssi.data.datasets[1].data.push(p.rssi_dl);
-  gSnr.data.datasets[0].data.push(p.snr_ul); gSnr.data.datasets[1].data.push(p.snr_dl);
-  gRssi.update(); gSnr.update();
-
-  const hora = new Date(p.t).toLocaleTimeString("pt-BR");
-  const tr = document.createElement("tr");
-  tr.innerHTML = `<td>${hora}</td><td>${p.medida}</td><td class="ul">${fmt(p.rssi_ul)}</td><td class="ul">${fmt(p.snr_ul,2)}</td>` +
-                 `<td class="dl">${fmt(p.rssi_dl)}</td><td class="dl">${fmt(p.snr_dl,2)}</td><td>${fmt(p.psr)} %</td>`;
-  $("tab").prepend(tr);
-  $("n-pac").textContent = $("tab").children.length;
+  if (modo === "revisao" || !p.valido) return;
+  if (!teste.inicio) teste.inicio = p.t;
+  const r = { t: p.t, medida: p.medida, total: p.total, rssi_ul: p.rssi_ul, snr_ul: p.snr_ul,
+              rssi_dl: p.rssi_dl, snr_dl: p.snr_dl, psr: p.psr, margem: p.margem };
+  teste.pacotes.push(r); desenhaPacote(r); gRssi.update(); gSnr.update();
+  if (p.estado === 5 || (p.total && p.medida >= p.total)) teste.finalizado = true;
+  mostraCabecalho(); salvaBackup();
 }
 
-// ---------- WebSocket do Node-RED ----------
 function conecta() {
   const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/lora");
   ws.onopen  = () => { $("dot").classList.add("on"); $("st").textContent = "Conectado ao Node-RED"; };
@@ -166,6 +335,8 @@ function conecta() {
     if (p.tipo === "dl") trataDL(p); else if (p.tipo === "ul") trataUL(p);
   };
 }
+
+restauraBackup();
 conecta();
 </script>
 </body>
