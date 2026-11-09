@@ -20,7 +20,7 @@ movimento**, para medir o efeito em RSSI, SNR e taxa de sucesso de pacotes (PSR)
 | `dados/brutos/` | Arquivos de cada rodada, sem edição, uma pasta por campanha |
 | `dados/processados/` | Resumos calculados (`resumo_rodadas.csv`) |
 | `analise/` | Scripts de análise (`resumo_rodadas.py`) |
-| `gerencia/` | Ferramenta de gerência da rede (entrega de 30/11) |
+| `gerencia/` | Painel Node-RED em tempo real e, depois, a ferramenta de gerência (30/11) |
 | `docs/` | Guia do trabalho, roteiro dos ensaios e figuras |
 
 ## Framework DL/UL (avaliação de cobertura)

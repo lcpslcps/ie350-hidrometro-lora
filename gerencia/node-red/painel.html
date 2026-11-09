@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidrômetro LoRa · Monitor do enlace</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#0f1720; --card:#17212c; --borda:#243241; --txt:#e6edf3; --sub:#8b9bb0;
+          --ul:#3fa7ff; --dl:#f2a541; --ok:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--txt); }
+  header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+           padding:16px 24px; border-bottom:1px solid var(--borda); }
+  h1 { font-size:20px; margin:0; font-weight:600; }
+  h1 small { display:block; font-size:12px; color:var(--sub); font-weight:400; margin-top:2px; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { background:var(--card); border:1px solid var(--borda); border-radius:14px; padding:4px 10px; font-size:12px; color:var(--sub); }
+  .chip b { color:var(--txt); }
+  .status { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--bad); }
+  .dot.on { background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  main { padding:20px 24px; display:grid; gap:16px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
+  .kpi { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }
+  .kpi .rot { font-size:12px; color:var(--sub); }
+  .kpi .val { font-size:28px; font-weight:600; margin-top:4px; }
+  .kpi .un { font-size:13px; color:var(--sub); font-weight:400; }
+  .kpi .barra { height:6px; background:var(--borda); border-radius:3px; margin-top:10px; overflow:hidden; }
+  .kpi .barra i { display:block; height:100%; width:0; border-radius:3px; transition:width .4s; }
+  .ul { color:var(--ul); } .dl { color:var(--dl); }
+  .graficos { display:grid; grid-template-columns:2fr 1fr; gap:16px; }
+  .card { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:14px; }
+  .card h2 { font-size:14px; margin:0 0 10px; font-weight:600; color:var(--sub); }
+  .alto { height:260px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--borda); }
+  th { color:var(--sub); font-weight:500; } th:first-child, td:first-child { text-align:left; }
+  button { background:transparent; color:var(--sub); border:1px solid var(--borda); border-radius:6px; padding:6px 12px; cursor:pointer; }
+  button:hover { color:var(--txt); border-color:var(--sub); }
+  @media (max-width:900px) { .graficos { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hidrômetro LoRa · Monitor do enlace
+    <small>IE350 · Lucas Chiomark Pereira Santos · RA 195111 · tópico mot_lora_195111</small></h1>
+  <div class="chips" id="chips">
+    <span class="chip">SF <b id="c-sf">–</b></span>
+    <span class="chip">BW <b id="c-bw">–</b> kHz</span>
+    <span class="chip">CR <b id="c-cr">–</b></span>
+    <span class="chip">Pot <b id="c-pot">–</b> dBm</span>
+  </div>
+  <div class="status"><span class="dot" id="dot"></span><span id="st">Conectando…</span>
+    <button id="limpar">Limpar</button></div>
+</header>
+
+<main>
+  <section class="kpis">
+    <div class="kpi"><div class="rot">Medida</div><div class="val"><span id="k-med">–</span> <span class="un">/ <span id="k-tot">–</span></span></div>
+      <div class="barra"><i id="b-med" style="background:var(--sub)"></i></div></div>
+    <div class="kpi"><div class="rot">PSR (taxa de sucesso)</div><div class="val" id="k-psr">–</div>
+      <div class="barra"><i id="b-psr"></i></div></div>
+    <div class="kpi"><div class="rot ul">RSSI subida (UL)</div><div class="val"><span id="k-rul">–</span> <span class="un">dBm</span></div></div>
+    <div class="kpi"><div class="rot dl">RSSI descida (DL)</div><div class="val"><span id="k-rdl">–</span> <span class="un">dBm</span></div></div>
+    <div class="kpi"><div class="rot ul">SNR subida</div><div class="val"><span id="k-sul">–</span> <span class="un">dB</span></div></div>
+    <div class="kpi"><div class="rot dl">SNR descida</div><div class="val"><span id="k-sdl">–</span> <span class="un">dB</span></div></div>
+    <div class="kpi"><div class="rot">Margem do enlace</div><div class="val"><span id="k-mar">–</span> <span class="un">dB</span></div>
+      <div class="barra"><i id="b-mar"></i></div></div>
+    <div class="kpi"><div class="rot">σ RSSI UL (rodada)</div><div class="val"><span id="k-sig">–</span> <span class="un">dB</span></div></div>
+  </section>
+
+  <section class="graficos">
+    <div class="card"><h2>RSSI por medida (dBm)</h2><div class="alto"><canvas id="g-rssi"></canvas></div></div>
+    <div class="card"><h2>SNR por medida (dB)</h2><div class="alto"><canvas id="g-snr"></canvas></div></div>
+  </section>
+
+  <section class="card">
+    <h2>Últimos pacotes</h2>
+    <table><thead><tr><th>Hora</th><th>Medida</th><th>RSSI UL</th><th>SNR UL</th><th>RSSI DL</th><th>SNR DL</th><th>PSR</th></tr></thead>
+      <tbody id="tab"></tbody></table>
+  </section>
+</main>
+
+<script>
+// ---------- Gráficos ----------
+Chart.defaults.color = "#8b9bb0";
+Chart.defaults.borderColor = "#243241";
+const opcoes = { responsive:true, maintainAspectRatio:false, animation:false,
+  plugins:{ legend:{ labels:{ boxWidth:12 } } },
+  scales:{ x:{ title:{ display:true, text:"medida" } } } };
+const serie = (rotulo, cor) => ({ label:rotulo, data:[], borderColor:cor, backgroundColor:cor,
+                                  tension:.25, pointRadius:2, borderWidth:2 });
+const gRssi = new Chart(document.getElementById("g-rssi"), { type:"line", options:opcoes,
+  data:{ labels:[], datasets:[ serie("UL", "#3fa7ff"), serie("DL", "#f2a541") ] } });
+const gSnr = new Chart(document.getElementById("g-snr"), { type:"line", options:opcoes,
+  data:{ labels:[], datasets:[ serie("UL", "#3fa7ff"), serie("DL", "#f2a541") ] } });
+
+// ---------- Estado da rodada ----------
+let rssiUl = [];
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 1) => (v === null || v === undefined) ? "–" : Number(v).toFixed(d);
+const cor = (v, bom, ruim) => v >= bom ? "var(--ok)" : v >= ruim ? "var(--warn)" : "var(--bad)";
+
+function desvio(a) {
+  if (a.length < 2) return null;
+  const m = a.reduce((s, x) => s + x, 0) / a.length;
+  return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1));
+}
+
+function limpar() {
+  rssiUl = [];
+  for (const g of [gRssi, gSnr]) { g.data.labels = []; g.data.datasets.forEach(d => d.data = []); g.update(); }
+  $("tab").innerHTML = "";
+  ["k-psr","k-rul","k-rdl","k-sul","k-sdl","k-mar","k-sig"].forEach(id => $(id).textContent = "–");
+}
+$("limpar").onclick = limpar;
+
+function trataDL(p) {
+  $("c-sf").textContent = p.sf; $("c-bw").textContent = p.bw;
+  $("c-cr").textContent = "4/" + p.cr; $("c-pot").textContent = p.pot;
+  if (p.nova_rodada) limpar();
+  if (p.medida >= 1) {
+    $("k-med").textContent = p.medida; $("k-tot").textContent = p.total;
+    $("b-med").style.width = (100 * p.medida / Math.max(p.total, 1)) + "%";
+  }
+}
+
+function trataUL(p) {
+  if (!p.valido) return;   // respostas de teste de enlace / configuração
+  rssiUl.push(p.rssi_ul);
+
+  $("k-rul").textContent = fmt(p.rssi_ul); $("k-rdl").textContent = fmt(p.rssi_dl);
+  $("k-sul").textContent = fmt(p.snr_ul, 2); $("k-sdl").textContent = fmt(p.snr_dl, 2);
+  $("k-mar").textContent = fmt(p.margem); $("k-sig").textContent = fmt(desvio(rssiUl), 2);
+  $("b-mar").style.width = Math.min(100, Math.max(0, p.margem)) + "%";
+  $("b-mar").style.background = cor(p.margem, 20, 10);
+  if (p.psr !== null) {
+    $("k-psr").textContent = fmt(p.psr) + " %";
+    $("k-psr").style.color = cor(p.psr, 95, 80);
+    $("b-psr").style.width = p.psr + "%"; $("b-psr").style.background = cor(p.psr, 95, 80);
+  }
+
+  gRssi.data.labels.push(p.medida); gSnr.data.labels.push(p.medida);
+  gRssi.data.datasets[0].data.push(p.rssi_ul); gRssi.data.datasets[1].data.push(p.rssi_dl);
+  gSnr.data.datasets[0].data.push(p.snr_ul); gSnr.data.datasets[1].data.push(p.snr_dl);
+  gRssi.update(); gSnr.update();
+
+  const hora = new Date(p.t).toLocaleTimeString("pt-BR");
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${hora}</td><td>${p.medida}</td><td class="ul">${fmt(p.rssi_ul)}</td><td class="ul">${fmt(p.snr_ul,2)}</td>` +
+                 `<td class="dl">${fmt(p.rssi_dl)}</td><td class="dl">${fmt(p.snr_dl,2)}</td><td>${fmt(p.psr)} %</td>`;
+  $("tab").prepend(tr);
+  while ($("tab").children.length > 15) $("tab").lastChild.remove();
+}
+
+// ---------- WebSocket do Node-RED ----------
+function conecta() {
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/lora");
+  ws.onopen  = () => { $("dot").classList.add("on"); $("st").textContent = "Conectado ao Node-RED"; };
+  ws.onclose = () => { $("dot").classList.remove("on"); $("st").textContent = "Reconectando…"; setTimeout(conecta, 2000); };
+  ws.onmessage = ev => {
+    const p = JSON.parse(ev.data);
+    if (p.tipo === "dl") trataDL(p); else if (p.tipo === "ul") trataUL(p);
+  };
+}
+conecta();
+</script>
+</body>
+</html>
