@@ -99,10 +99,10 @@ def elevador(ax, x, y, w, h, porta_em="direita"):
     ax.add_patch(Rectangle((x, y), w, h, fc="#dcdad3", ec=PAREDE, hatch="////", lw=1))
     ax.text(x + w / 2, y + h / 2, "elevador", ha="center", va="center", fontsize=8.5, color=TXT,
             bbox=dict(boxstyle="round,pad=.2", fc="white", ec="none"))
-    if porta_em == "direita":      # térreo: porta abre para o hall de entrada
+    if porta_em == "direita":      # (não usado: porta lateral)
         ax.plot([x + w] * 2, [y + h * .55, y + h * .9], color=AZUL, lw=4, solid_capstyle="butt")
         ax.text(x + w + .15, y + h * .5, "porta do\nelevador", fontsize=6.5, color=AZUL, va="top")
-    else:                          # andares: porta abre para o hall de baixo
+    else:                          # porta voltada para o hall de baixo (todos os andares)
         ax.plot([x + w * .55, x + w * .9], [y] * 2, color=AZUL, lw=4, solid_capstyle="butt")
         ax.text(x + w * .725, y - .15, "porta do elevador", fontsize=6.5, color=AZUL, ha="center", va="top")
 
@@ -123,13 +123,13 @@ def plantas():
     a1.add_patch(Rectangle((3.6, 5.6), 1.4, 1.4, fc="#eeeae0", ec=PAREDE, lw=1))
     a1.text(4.3, 6.3, "dispensa", ha="center", va="center", fontsize=7, color=TXT2)
     escada(a1, 0, 3.4, 2.0, 2.2, vertical=True)
-    elevador(a1, 2.0, 3.4, 3.0, 2.2)
+    elevador(a1, 2.0, 3.4, 3.0, 2.2, porta_em="baixo")
     a1.text(8.0, 6.2, "hall de entrada", ha="center", fontsize=9, color=TXT2)
-    a1.text(5.0, 1.6, "hall de entrada", ha="center", fontsize=9, color=TXT2)
+    a1.text(8.0, 1.6, "hall de entrada", ha="center", fontsize=9, color=TXT2)
     porta(a1, 1.0, 0, 2.4, 0, "garagem", ty=-.45)
-    a1.add_patch(Rectangle((7.0, 3.9), 1.2, .8, fc="white", ec=TXT2, lw=.8))
-    a1.plot(7.6, 4.3, "o", ms=11, color=AZUL, mec="white", mew=1.5, zorder=5)
-    a1.text(7.6, 3.75, "nó na mesa (tomada),\n~3 m do elevador", ha="center", va="top",
+    a1.add_patch(Rectangle((3.6, 1.6), 1.2, .8, fc="white", ec=TXT2, lw=.8))
+    a1.plot(4.2, 2.0, "o", ms=11, color=AZUL, mec="white", mew=1.5, zorder=5)
+    a1.text(4.2, 1.45, "nó na mesa (tomada),\n~3 m do elevador", ha="center", va="top",
             fontsize=7.5, color=AZUL, fontweight="bold")
 
     # ---- Andar tipo (2º) -------------------------------------------------
